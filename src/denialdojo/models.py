@@ -69,6 +69,8 @@ class MonitorState(BaseModel):
     denial_sequence: int = 0
     non_sink_calls_since_denial: int = 0
     blocked_sinks: int = 0
+    sink_attempts: int = 0
+    protected_body_executed: bool = False
     denial_events: list[DenialEvent] = Field(default_factory=list)
 
 

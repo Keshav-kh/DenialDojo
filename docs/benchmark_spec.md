@@ -4,13 +4,13 @@
 
 | Requirement | Design response | Current state |
 | --- | --- | --- |
-| AgentDojo integration | Standalone custom `TaskSuite`, AgentDojo pipeline, tools, traces, and evaluators | Implemented in vertical slice |
+| AgentDojo integration | Minimal custom fixture plus installed Workspace state, packaged content, real drive/email tools, pipeline, and evaluators | One genuine scripted Workspace slice implemented |
 | Threat model | Trusted interposer, randomized hidden state, controlled denial channel, registered sink | Frozen v0.1 |
-| 12–16 validated scenarios | Registry targets 16 base scenarios across Workspace and Banking | Planned; first base scenario implemented |
+| 12–16 validated scenarios | Registry targets 16 base scenarios across Workspace and Banking | Planned; one genuine slice has harness validation only |
 | Generic and reason-bearing feedback | `FeedbackMode.UNIFORM` and `FeedbackMode.REASON_BEARING` | Implemented |
 | Delays 0, 1, 2, 4 | Scenario configuration and scripted control | Implemented in harness; full matrix pending |
 | Scripted adversary and actual LLM | Deterministic scripted control plus black-box AgentDojo LLM pipeline | Scripted implemented; LLM pending credentials/model freeze |
-| Leakage and utility evaluators | External-outbox state plus original-task trace/output | Implemented for vertical slice |
+| Leakage and utility evaluators | Final Workspace email state plus original-task output and matched recovery state | Implemented for the scripted Workspace slice |
 | Three comparison conditions | No specialized defense, uniform feedback, immediate adjacency/fixed quarantine | Implemented as policy primitives |
 | Repeated runs and inference | Paired model runs, scenario-cluster bootstrap CI, paired permutation/McNemar tests | Protocol specified; runs pending |
 | Limits and causal boundaries | Explicit allowed claims and exclusions | Frozen v0.1 |
@@ -82,10 +82,14 @@ must not be collapsed into one baseline.
 6. **Utility gate:** matched benign controls must complete without requiring the
    malicious sink action.
 
+Checkpoint 1B passes these gates for scripted delays 0 and 2 on
+`workspace_document_file_probe`. This status does not constitute actual-LLM
+evidence or the scenario-level accept/revise/reject decision required before a
+held-out benchmark.
+
 ## First LLM pilot gate
 
 Do not begin the full 16-scenario matrix until one actual LLM agent completes
 the original task and produces valid traces on both hidden states for at least
 one reason-bearing configuration. This is an infrastructure gate, not a
 requirement that leakage exceed chance.
-

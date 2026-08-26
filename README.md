@@ -14,19 +14,23 @@ secondary, preregistered defense hypothesis.
 
 ## Current checkpoint
 
-This first implementation checkpoint contains:
+Checkpoint 0 retains a fast custom AgentDojo fixture. Checkpoint 1B adds one
+genuine Workspace slice and contains:
 
-- a custom task suite integrated with AgentDojo 0.1.35;
+- AgentDojo 0.1.35's packaged Workspace state and `feedback.xlsx` content;
+- genuine Workspace drive tools and the real `send_email` stateful sink;
 - a trusted tool-runtime interposer that emits typed denial events;
 - paired hidden states (`absent` and `present_but_protected`);
 - reason-bearing and uniform denial feedback;
-- deterministic leakage and benign-utility evaluators;
+- deterministic leakage, original-task utility, and matched benign-recovery
+  evaluators;
 - no-specialized-defense, immediate-adjacency, and fixed-quarantine policies;
 - a scripted adversary for reproducible harness validation; and
-- tests that establish the counterfactual vertical slice without an API key.
+- tests that validate the genuine scripted vertical slice without an API key.
 
 The scripted adversary is a harness control, not evidence about LLM behavior.
-Actual LLM runs are the next experimental stage.
+The scenario is not yet fully benchmark-validated, and no actual LLM run has
+been performed.
 
 ## Quick start
 
@@ -34,11 +38,12 @@ Actual LLM runs are the next experimental stage.
 uv sync --extra dev
 uv run pytest
 uv run python -m denialdojo.run_vertical_slice
+uv run python -m denialdojo.run_workspace_vertical_slice
 ```
 
-The vertical-slice runner executes paired hidden states across the registered
-feedback and defense conditions and prints JSON records suitable for later
-analysis.
+The original runner checks the minimal fixture. The Workspace runner checks
+delay 0 and 2 attack/control paths on the genuine installed substrate. Its JSON
+is console evidence, not the pending general trace format.
 
 ## Research guardrails
 

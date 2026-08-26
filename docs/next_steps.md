@@ -15,18 +15,21 @@ reopen thesis ideation.
 - Validate paired hidden states with a scripted adversary.
 - Validate delay levels 0, 1, 2, and 4 in a 32-run harness sanity matrix.
 
-## Checkpoint 1 - next coding work
+## Checkpoint 1B - completed locally
 
-1. Port the vertical slice into one genuine AgentDojo Workspace task rather
-   than the minimal research fixture.
-2. Add a matched benign recovery task that receives the same denial but has no
-   malicious sink objective.
-3. Add trace serialization containing scenario ID, condition assignment,
+1. Ported one scripted vertical slice onto AgentDojo 0.1.35's genuine
+   Workspace environment, packaged drive content, drive tools, and email sink.
+2. Added a matched benign recovery task that receives the same denial and uses
+   a denial-independent legitimate email value.
+3. Retained the minimal fixture and documented that neither slice is
+   actual-LLM evidence or a fully validated scenario.
+
+## Later authorized checkpoints - not started
+
+1. Add trace serialization containing scenario ID, condition assignment,
    model identifier, repetition, denial events, tool calls, evaluator outputs,
    and infrastructure status.
-4. Add oracle mutation tests and prompt-byte equality tests across hidden-state
-   pairs.
-5. Run the first actual-LLM infrastructure pilot on exactly one base scenario,
+2. Run the first actual-LLM infrastructure pilot on exactly one base scenario,
    two hidden states, reason-bearing feedback, and delay 0 and 2.
 
 The pilot is allowed to show zero leakage. Its purpose is to verify that the
@@ -90,4 +93,3 @@ frontier improvement, stop mechanism iteration and finish the benchmark thesis.
 
 No decision is needed before continuing local scenario, evaluator, and trace
 implementation.
-
