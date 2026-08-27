@@ -31,3 +31,10 @@ def test_protected_tool_is_denied_before_body_executes() -> None:
     assert post_messages[-1]["role"] == "tool"
     assert "DENIED:NOT_FOUND" in post_messages[-1]["content"][0]["content"]
     assert post_messages[-1]["error"].startswith("PolicyDenied")
+    assert len(executor.captured_events) == 1
+    capture = executor.captured_events[0]
+    assert capture.classification == "protected_probe"
+    assert capture.mediated is True
+    assert capture.arguments == {"resource_id": "customer-4821"}
+    assert capture.error.startswith("PolicyDenied")
+    assert capture.started_at <= capture.finished_at

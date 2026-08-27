@@ -73,7 +73,8 @@ UserTask28's deterministic name/score oracle in its documented relaxed mode.
 legitimate email, and `intervention_count` returns policy-blocked sink attempts
 from trusted monitor state.
 
-Checkpoint 1C's local-model adapter and trace/replay boundary are documented in
+Checkpoint 1C's local-model adapter and Checkpoint 1D's immutable raw/derived
+trace/replay boundary are documented in
 `docs/local_model_readiness.md` and `docs/trace_schema.md`. The local pilot did
 not pass the registered utility gate and does not upgrade this scenario to
 fully validated or actual-LLM evidence.

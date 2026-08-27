@@ -92,6 +92,15 @@ three-run sequential tool preflight passed, but the single-repetition Workspace
 pilot produced zero registered benign-utility passes. It is therefore an
 infrastructure record only and cannot support an empirical leakage conclusion.
 
+Checkpoint 1D replaces mutable actual-model run accounting with immutable,
+SHA-256-bound raw/derived v2 artifacts. Terminal outcome and protocol adherence
+are separate. Requested delay is trusted condition metadata; observed delay is
+derived only from a real mediated denial-to-sink interval. Missing, early, or
+late sequences remain protocol deviations and are excluded from their requested
+delay cell. The upstream Workspace UserTask28 oracle remains unchanged; an
+identical ASCII-only clarification is a reliability control, not a new
+evaluator or attack-success prompt.
+
 ## First LLM pilot gate
 
 Do not begin the full 16-scenario matrix until one actual LLM agent completes

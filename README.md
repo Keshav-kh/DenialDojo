@@ -15,7 +15,7 @@ secondary, preregistered defense hypothesis.
 ## Current checkpoint
 
 Checkpoint 0 retains a fast custom AgentDojo fixture. Checkpoint 1B adds one
-genuine Workspace slice. Checkpoint 1C adds:
+genuine Workspace slice. Checkpoints 1C and 1D add:
 
 - AgentDojo 0.1.35's packaged Workspace state and `feedback.xlsx` content;
 - genuine Workspace drive tools and the real `send_email` stateful sink;
@@ -27,16 +27,18 @@ genuine Workspace slice. Checkpoint 1C adds:
 - no-specialized-defense, immediate-adjacency, and fixed-quarantine policies;
 - a scripted adversary for reproducible harness validation;
 - tests that validate the genuine scripted vertical slice without an API key;
-- versioned pilot JSONL and manifest schemas with secret redaction;
+- versioned pilot traces and manifests with secret redaction;
 - deterministic no-LLM replay;
 - a local-only Ollama sequential tool adapter and frozen preflight; and
-- an eight-condition local infrastructure pilot whose registered benign-utility
-  gate failed.
+- immutable per-run raw/derived v2 accounting with separate terminal and
+  protocol statuses.
 
 The scripted adversary is a harness control, not evidence about LLM behavior.
 The scenario is not yet fully benchmark-validated, and no actual LLM run has
 been accepted as empirical evidence. The first local-model pilot produced
-replayable traces but failed the registered utility gate.
+replayable traces but failed the registered utility gate. Checkpoint 1D's exact
+eight-record benign readiness rerun also failed one state/delay cell; the
+follow-up attack/control pilot was therefore not run.
 
 ## Quick start
 
@@ -52,7 +54,7 @@ uv run python -m denialdojo.replay_trace runs/pilot/scripted/traces.jsonl
 The original runner checks the minimal fixture. The Workspace runner checks
 delay 0 and 2 attack/control paths on the genuine installed substrate. Its JSON
 is console evidence, not the pending general trace format.
-Checkpoint 1C trace and Ollama commands are documented in
+Checkpoint 1C/1D trace, audit, and Ollama commands are documented in
 `docs/trace_schema.md` and `docs/local_model_readiness.md`. Generated pilot
 records are ignored and must not be committed as research data.
 

@@ -582,6 +582,35 @@ misreported as completed research.
 See `docs/local_model_readiness.md` and `docs/trace_schema.md` for exact runtime,
 model inventory, schema, commands, and limitations.
 
+### 10.5 Verified Checkpoint 1D update — August 26, 2026
+
+- The ignored Checkpoint 1C records were audited without modification and are
+  now explicitly labeled infrastructure-only, post-processed artifacts.
+- New local runs use exclusive-create per-run raw and derived v2 files. Derived
+  records bind to raw bytes by SHA-256; replay rejects raw or derived changes.
+- `terminal_status` and `protocol_status` are independent. Requested and
+  observed delay are separate, and absent, early, or late intervals are
+  protocol deviations rather than repaired conditions.
+- The upstream AgentDojo 0.1.35 UserTask28 oracle is unchanged. One identical
+  ASCII-only exact-format clarification was added to the legitimate task.
+- The exact eight-record matched-benign readiness matrix was run once. Three of
+  four state/delay cells passed. Both `present_but_protected`/delay-0
+  repetitions were protocol-conformant but utility-false because the model
+  omitted the required final period from the genuine Workspace email body.
+- One additional record timed out with no denial or sink and is preserved as
+  `terminal_status=timeout`, `protocol_status=protocol_deviation`.
+- The readiness gate failed. Under the frozen failure rule, the separate
+  eight-condition attack/control pilot was not run and no prompt, oracle, or
+  model setting was tuned or repeated.
+- No hidden-state assignment entered model-visible captures; all observed
+  registered tools were mediated and the protected-body sentinel stayed false.
+- The failed ignored readiness records retain their original descriptive
+  trusted run IDs, which were mirrored into filenames/index entries. Future v2
+  runs use opaque ordinals; the existing records were not rewritten or rerun.
+
+See `docs/checkpoint1c_pilot_audit.md`, `docs/trace_schema.md`, and
+`docs/local_model_readiness.md` for evidence and limitations.
+
 ---
 
 ## 11. Exact next implementation sequence
@@ -589,11 +618,11 @@ model inventory, schema, commands, and limitations.
 Proceed in this order. A later item must not obscure a failing earlier validity
 gate.
 
-Status as of August 26, 2026: Checkpoints 1A–1C, the applicable strengthened
-tests, and the strictly scoped Checkpoint 1E infrastructure pilot are complete.
-The benign-utility gate did not pass. Do not expand scenarios, models,
+Status as of August 26, 2026: Checkpoints 1A–1D and the applicable strengthened
+tests are complete. The Checkpoint 1D benign-readiness gate did not pass, so its
+follow-up attack/control pilot was not run. Do not expand scenarios, models,
 repetitions, defenses, or hypotheses until Keshav explicitly authorizes the
-next checkpoint and the utility compatibility decision is preregistered.
+next reliability checkpoint.
 
 ### Checkpoint 1A — local repository and reproducibility
 

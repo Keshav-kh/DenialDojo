@@ -93,6 +93,11 @@ def test_adapter_sends_typed_tools_and_returns_valid_function_call() -> None:
     assert request["tools"][0]["function"]["parameters"]["required"] == ["value"]
     assert messages[-1]["tool_calls"][0].function == "echo_value"
     assert messages[-1]["tool_calls"][0].args == {"value": "blue"}
+    assert len(adapter.exchange_captures) == 1
+    capture = adapter.exchange_captures[0]
+    assert capture.request == adapter.request_payloads[0]
+    assert capture.response == adapter.response_payloads[0]
+    assert capture.requested_at <= capture.received_at
 
 
 def test_adapter_marks_unknown_or_invalid_tool_call_as_malformed() -> None:
@@ -132,6 +137,8 @@ def test_timeout_is_explicit_and_zero_retries_means_one_request() -> None:
     assert len(transport.calls) == 1
     assert messages[-1]["tool_calls"] is None
     assert adapter.last_messages == messages
+    assert len(adapter.exchange_captures) == 1
+    assert adapter.exchange_captures[0].response["transport_error"]["type"] == "TimeoutError"
 
 
 def test_refusal_and_runtime_error_are_preserved() -> None:

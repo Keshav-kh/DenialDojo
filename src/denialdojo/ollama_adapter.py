@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import socket
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 from typing import Any
 from urllib import error as urllib_error
 from urllib import request as urllib_request
@@ -15,6 +16,7 @@ from agentdojo.functions_runtime import EmptyEnv, Env, FunctionCall, FunctionsRu
 from agentdojo.types import ChatAssistantMessage, ChatMessage, get_text_content_as_str, text_content_block_from_string
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from denialdojo.capture import CapturedExchange
 from denialdojo.trace import TerminalStatus, redact_value
 
 Transport = Callable[[str, dict, float], dict]
@@ -127,6 +129,7 @@ class OllamaAdapter(BasePipelineElement):
         self.transport = transport or _http_transport
         self.request_payloads: list[dict[str, Any]] = []
         self.response_payloads: list[dict[str, Any]] = []
+        self.exchange_captures: list[CapturedExchange] = []
         self.request_count = 0
         self.terminal_status: TerminalStatus | None = None
         self.terminal_error: str | None = None
@@ -155,16 +158,42 @@ class OllamaAdapter(BasePipelineElement):
         last_error: Exception | None = None
         for _ in range(attempts):
             self.request_count += 1
-            self.request_payloads.append(redact_value(payload))
+            request_payload = redact_value(payload)
+            self.request_payloads.append(request_payload)
+            requested_at = datetime.now(UTC).isoformat()
             try:
                 response = self.transport(
                     f"{self.config.base_url.rstrip('/')}/api/chat",
                     payload,
                     self.config.timeout_seconds,
                 )
-                self.response_payloads.append(redact_value(response))
+                response_payload = redact_value(response)
+                self.response_payloads.append(response_payload)
+                self.exchange_captures.append(
+                    CapturedExchange(
+                        sequence=len(self.exchange_captures),
+                        requested_at=requested_at,
+                        received_at=datetime.now(UTC).isoformat(),
+                        request=request_payload,
+                        response=response_payload,
+                    )
+                )
                 return response
             except Exception as error:
+                self.exchange_captures.append(
+                    CapturedExchange(
+                        sequence=len(self.exchange_captures),
+                        requested_at=requested_at,
+                        received_at=datetime.now(UTC).isoformat(),
+                        request=request_payload,
+                        response={
+                            "transport_error": {
+                                "type": type(error).__name__,
+                                "message": redact_value(str(error)),
+                            }
+                        },
+                    )
+                )
                 last_error = error
         assert last_error is not None
         raise last_error

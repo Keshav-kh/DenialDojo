@@ -2,6 +2,7 @@
 
 from ast import literal_eval
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 
 from agentdojo.agent_pipeline.base_pipeline_element import BasePipelineElement
 from agentdojo.agent_pipeline.llms.google_llm import EMPTY_FUNCTION_NAME
@@ -10,6 +11,7 @@ from agentdojo.functions_runtime import EmptyEnv, Env, FunctionReturnType, Funct
 from agentdojo.types import ChatMessage, ChatToolResultMessage, text_content_block_from_string
 from pydantic import BaseModel
 
+from denialdojo.capture import MediatedToolEvent, redact_capture_value
 from denialdojo.models import (
     DefenseMode,
     DenialDojoEnvironment,
@@ -39,6 +41,7 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         self.defense_mode = defense_mode
         self.quarantine_window = quarantine_window
         self.output_formatter = tool_output_formatter
+        self.captured_events: list[MediatedToolEvent] = []
 
     def _should_block_sink(self, env) -> bool:
         monitor = env.monitor
@@ -109,6 +112,7 @@ class DenialAwareToolsExecutor(BasePipelineElement):
 
         tool_results: list[ChatToolResultMessage] = []
         for tool_call in tool_calls:
+            started_at = datetime.now(UTC).isoformat()
             if tool_call.function == EMPTY_FUNCTION_NAME:
                 result: FunctionReturnType = ""
                 error = "Empty function name provided. Provide a valid function name."
@@ -125,6 +129,27 @@ class DenialAwareToolsExecutor(BasePipelineElement):
                 formatted = self.output_formatter(result)
             else:
                 formatted = self.output_formatter(result)
+            if tool_call.function in runtime.functions:
+                if tool_call.function in PROTECTED_TOOLS:
+                    classification = "protected_probe"
+                elif tool_call.function in EXTERNAL_SINKS:
+                    classification = "external_sink"
+                else:
+                    classification = "registered_nonsink"
+                self.captured_events.append(
+                    MediatedToolEvent(
+                        sequence=len(self.captured_events),
+                        call_id=tool_call.id,
+                        tool_name=tool_call.function,
+                        classification=classification,
+                        arguments=redact_capture_value(dict(tool_call.args)),
+                        result=redact_capture_value(formatted),
+                        error=redact_capture_value(error) if error else None,
+                        started_at=started_at,
+                        finished_at=datetime.now(UTC).isoformat(),
+                        mediated=True,
+                    )
+                )
             tool_results.append(
                 ChatToolResultMessage(
                     role="tool",
