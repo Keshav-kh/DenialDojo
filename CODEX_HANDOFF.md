@@ -537,6 +537,10 @@ They are not empirical findings about actual LLM agents.
 
 ### 10.3 What does not exist yet
 
+The list below records the state at the original scripted-fixture handoff and
+is retained as history. The dated Checkpoint 1C update immediately after it
+supersedes items that have since been implemented.
+
 - no genuine port of the minimal fixture into an existing AgentDojo Workspace
   or Banking scenario;
 - no matched benign recovery control that fully measures false interventions;
@@ -554,12 +558,42 @@ They are not empirical findings about actual LLM agents.
 Do not let planned registry entries, pipeline stubs, or scripted controls be
 misreported as completed research.
 
+### 10.4 Verified Checkpoint 1C update — August 26, 2026
+
+- Checkpoint 1B now contains one genuine AgentDojo 0.1.35 Workspace slice,
+  `workspace_document_file_probe`, and its matched benign recovery control.
+- Checkpoint 1C now contains versioned pilot JSONL/manifests, redaction,
+  deterministic replay, a local-only Ollama adapter, and explicit terminal
+  outcomes.
+- Installed `gpt-oss:20b` passed the frozen three-repetition sequential-tool
+  preflight at temperature 0 with zero retries.
+- Exactly eight local Workspace infrastructure conditions were run: two hidden
+  states, delays 0 and 2, attack/control, reason-bearing feedback, no defense,
+  one repetition.
+- The local records replay, but registered benign utility was 0/8 because the
+  model inserted U+202F inside names checked by AgentDojo UserTask28's exact
+  oracle. The evaluator was not loosened and the model was not rerun.
+- Generated local records remain ignored pilot infrastructure, not committed
+  research data. They establish neither positive nor negative leakage evidence,
+  and the scenario is not fully benchmark-validated.
+- The 12–16 scenario set, preregistration, held-out repeated runs, statistical
+  analysis, and Causal Residue remain unimplemented.
+
+See `docs/local_model_readiness.md` and `docs/trace_schema.md` for exact runtime,
+model inventory, schema, commands, and limitations.
+
 ---
 
 ## 11. Exact next implementation sequence
 
 Proceed in this order. A later item must not obscure a failing earlier validity
 gate.
+
+Status as of August 26, 2026: Checkpoints 1A–1C, the applicable strengthened
+tests, and the strictly scoped Checkpoint 1E infrastructure pilot are complete.
+The benign-utility gate did not pass. Do not expand scenarios, models,
+repetitions, defenses, or hypotheses until Keshav explicitly authorizes the
+next checkpoint and the utility compatibility decision is preregistered.
 
 ### Checkpoint 1A — local repository and reproducibility
 
@@ -885,13 +919,13 @@ AgentDojo while diagnosing setup. If AgentDojo 0.1.35 is incompatible with the
 local Python version, record the exact error and use a supported Python
 environment rather than immediately changing the benchmark dependency.
 
-Recommended first prompt to Codex after opening the project:
+Recommended continuation prompt after Checkpoint 1C:
 
-> Read `AGENTS.md` and `CODEX_HANDOFF.md` fully, then inspect the repository and
-> run the standard checks. Do not reopen thesis ideation. Report the verified
-> current state and implement Checkpoint 1B's genuine AgentDojo Workspace
-> vertical slice plus its matched benign recovery control. Preserve the
-> counterfactual invariants and do not run a paid API.
+> Read `AGENTS.md`, `CODEX_HANDOFF.md`, `docs/local_model_readiness.md`, and
+> `docs/trace_schema.md`, then run the standard checks and replay the ignored
+> local pilot if it is still available. Do not reopen thesis ideation or treat
+> the pilot as leakage evidence. Report the utility-gate blocker and wait for
+> Keshav's explicit next-checkpoint scope; do not run a paid API.
 
 After every meaningful code change:
 
@@ -940,7 +974,8 @@ again before appearing in the thesis.
   and current tests exist.
 - Eight tests and lint passed at Checkpoint 0.
 - The current 16-entry scenario registry is planned, not validated.
-- No actual LLM experiment has been run in this project checkpoint.
+- One strictly scoped local-model infrastructure pilot has run, but it failed
+  the registered benign-utility gate and is not accepted empirical evidence.
 
 ### Verified in prior literature review but re-check pages/version before citation
 
@@ -953,9 +988,9 @@ again before appearing in the thesis.
 
 ### Not yet verified in the current local repository/session
 
-- exact local APIs needed to port a genuine AgentDojo Workspace/Banking task;
-- whether the selected local Ollama model supports reliable parallel or
-  sequential tool calling under the needed schema;
+- exact local APIs needed to port additional genuine AgentDojo Banking tasks;
+- whether the selected local Ollama model can preserve its successful
+  sequential tool calling while also passing registered Workspace utility;
 - final model/provider, repetition count, power, and API cost;
 - all 16 candidate scenarios' realism, independence, and validity;
 - exact ARM immediate-adjacency versus literal-cascade implementation details
@@ -971,9 +1006,9 @@ audit with a date.
 
 ---
 
-## 20. Definition of “done” for the next Codex session
+## 20. Definition of “done” for the completed initial Codex sequence
 
-The first local Codex session is successful when it has:
+The initial local Codex sequence is successful when it has:
 
 1. read this file and preserved the committed thesis direction;
 2. reproduced the current tests, lint, and scripted matrix;
@@ -985,7 +1020,8 @@ The first local Codex session is successful when it has:
    temporal semantics, and deterministic replay as applicable;
 8. documented remaining blockers without running a paid API.
 
-The correct next question is not “What thesis should we do?” It is “Does this
-genuine vertical slice satisfy every counterfactual and mediation invariant,
-and can a real tool-calling model execute it with adequate benign utility?”
-
+The counterfactual/mediation and sequential-tool infrastructure gates now pass;
+the registered benign-utility gate does not. The correct next question is not
+“What thesis should we do?” It is “Which explicitly approved, preregistered
+compatibility decision can make the genuine slice measurable without weakening
+its deterministic utility oracle?”

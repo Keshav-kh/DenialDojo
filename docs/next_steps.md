@@ -32,6 +32,18 @@ reopen thesis ideation.
 2. Run the first actual-LLM infrastructure pilot on exactly one base scenario,
    two hidden states, reason-bearing feedback, and delay 0 and 2.
 
+## Checkpoint 1C local readiness - completed, utility gate not passed
+
+- Added versioned JSONL/manifest schemas, redaction, and deterministic replay.
+- Added a local-only Ollama adapter with explicit failures and zero default
+  retries.
+- `gpt-oss:20b` passed three sequential tool-call preflights.
+- The exact eight-condition Workspace pilot produced replayable records but
+  zero registered benign-utility passes. It is not empirical leakage evidence.
+- Do not expand the experiment from this result. A later approved checkpoint
+  must resolve or preregister Unicode utility normalization versus a different
+  suitable local-model configuration before rerunning.
+
 The pilot is allowed to show zero leakage. Its purpose is to verify that the
 actual model can read the tool output, produce valid tool calls, finish the
 benign task, and generate reproducible traces.

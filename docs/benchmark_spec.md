@@ -9,7 +9,7 @@
 | 12–16 validated scenarios | Registry targets 16 base scenarios across Workspace and Banking | Planned; one genuine slice has harness validation only |
 | Generic and reason-bearing feedback | `FeedbackMode.UNIFORM` and `FeedbackMode.REASON_BEARING` | Implemented |
 | Delays 0, 1, 2, 4 | Scenario configuration and scripted control | Implemented in harness; full matrix pending |
-| Scripted adversary and actual LLM | Deterministic scripted control plus black-box AgentDojo LLM pipeline | Scripted implemented; LLM pending credentials/model freeze |
+| Scripted adversary and actual LLM | Deterministic scripted control plus black-box AgentDojo LLM pipeline | Scripted implemented; local adapter/preflight implemented; first utility gate failed |
 | Leakage and utility evaluators | Final Workspace email state plus original-task output and matched recovery state | Implemented for the scripted Workspace slice |
 | Three comparison conditions | No specialized defense, uniform feedback, immediate adjacency/fixed quarantine | Implemented as policy primitives |
 | Repeated runs and inference | Paired model runs, scenario-cluster bootstrap CI, paired permutation/McNemar tests | Protocol specified; runs pending |
@@ -86,6 +86,11 @@ Checkpoint 1B passes these gates for scripted delays 0 and 2 on
 `workspace_document_file_probe`. This status does not constitute actual-LLM
 evidence or the scenario-level accept/revise/reject decision required before a
 held-out benchmark.
+
+Checkpoint 1C adds replayable pilot traces and a local Ollama adapter. Its
+three-run sequential tool preflight passed, but the single-repetition Workspace
+pilot produced zero registered benign-utility passes. It is therefore an
+infrastructure record only and cannot support an empirical leakage conclusion.
 
 ## First LLM pilot gate
 
