@@ -1,5 +1,6 @@
 import pytest
 
+from denialdojo import local_model_scope, run_ollama_pilot, run_ollama_readiness
 from denialdojo.local_pilot import (
     PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
     PilotCondition,
@@ -206,6 +207,25 @@ def test_pilot_gate_rejects_failed_benign_readiness_summary(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="readiness gate did not pass"):
         _load_readiness_gate(path, _runtime_metadata())
+
+
+def test_checkpoint_scopes_bind_alternate_model_without_changing_c1d_history() -> None:
+    readiness_scope = local_model_scope.readiness_scope_for_model
+    pilot_scope = local_model_scope.pilot_scope_for_model
+    assert readiness_scope("gpt-oss:20b") == "checkpoint1d_benign_readiness_gate"
+    assert pilot_scope("gpt-oss:20b") == "checkpoint1d_non_statistical_workspace_pilot"
+    assert readiness_scope("qwen3:8b") == "checkpoint1e_benign_readiness_gate"
+    assert pilot_scope("qwen3:8b") == "checkpoint1e_non_statistical_workspace_pilot"
+
+    with pytest.raises(ValueError, match="not authorized"):
+        readiness_scope("some-other-model")
+
+
+def test_alternate_model_runner_defaults_are_labeled_checkpoint1e() -> None:
+    assert "checkpoint1e" in str(run_ollama_readiness._default_output_dir("qwen3:8b"))
+    assert "checkpoint1e" in str(run_ollama_pilot._default_output_dir("qwen3:8b"))
+    assert "checkpoint1d" in str(run_ollama_readiness._default_output_dir("gpt-oss:20b"))
+    assert "checkpoint1d" in str(run_ollama_pilot._default_output_dir("gpt-oss:20b"))
 
 
 def test_pilot_matrix_is_exactly_eight_frozen_conditions() -> None:

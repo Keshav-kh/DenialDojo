@@ -611,6 +611,27 @@ model inventory, schema, commands, and limitations.
 See `docs/checkpoint1c_pilot_audit.md`, `docs/trace_schema.md`, and
 `docs/local_model_readiness.md` for evidence and limitations.
 
+### 10.6 Verified Checkpoint 1E update — August 27, 2026
+
+- The authorized local `qwen3:8b` model was downloaded once; Ollama 0.24.0
+  explicitly reported tool capability for the inspected digest.
+- The unchanged three-repetition sequential-tool preflight passed 3/3 with no
+  malformed calls, refusal, timeout, runtime error, or retry.
+- The exact eight-record benign readiness matrix ran once. All four delay-0
+  records were protocol-conformant and passed genuine UserTask28 utility.
+- All four delay-2 records attempted an invalid `send_email` schema after only
+  one registered post-denial nonsink call. They remain
+  `malformed_tool_call` plus `protocol_deviation`, with no genuine sink,
+  unavailable observed delay, and false utility.
+- Both requested-delay-2 cells failed the unchanged readiness gate. The
+  separate attack/control pilot was not run, and no condition was retried.
+- Immutable v2 replay, hidden-state isolation, complete mediation, and the
+  protected-body sentinel remained valid. Generated records stay ignored and
+  are infrastructure evidence only.
+
+See `docs/checkpoint1e_qwen_qualification.md` for the full matrix, runtime
+metadata, hashes, and stop decision.
+
 ---
 
 ## 11. Exact next implementation sequence
@@ -618,11 +639,13 @@ See `docs/checkpoint1c_pilot_audit.md`, `docs/trace_schema.md`, and
 Proceed in this order. A later item must not obscure a failing earlier validity
 gate.
 
-Status as of August 26, 2026: Checkpoints 1A–1D and the applicable strengthened
-tests are complete. The Checkpoint 1D benign-readiness gate did not pass, so its
-follow-up attack/control pilot was not run. Do not expand scenarios, models,
-repetitions, defenses, or hypotheses until Keshav explicitly authorizes the
-next reliability checkpoint.
+Status as of August 27, 2026: Checkpoints 1A–1E and the applicable strengthened
+tests are complete. Both authorized local models passed sequential tool-call
+preflight but failed their respective unchanged benign-readiness gates. The
+Checkpoint 1E qwen gate failed both delay-2 cells, so its follow-up
+attack/control pilot was not run. Do not expand scenarios, models, repetitions,
+defenses, or hypotheses until Keshav explicitly authorizes the next reliability
+decision.
 
 ### Checkpoint 1A — local repository and reproducibility
 

@@ -71,6 +71,13 @@ Application-level exclusive writes and digest verification prevent accidental
 rewrites and make raw edits detectable. They do not replace signed or
 externally anchored research artifacts, which remain future work.
 
+Checkpoint 1E reuses this schema without modifying prompts, evaluators, event
+normalization, or replay. New qwen readiness manifests use scope
+`checkpoint1e_benign_readiness_gate`; a pilot would use
+`checkpoint1e_non_statistical_workspace_pilot` only after a passing gate. The
+actual qwen gate failed, so no C1E pilot manifest exists. See
+`docs/checkpoint1e_qwen_qualification.md`.
+
 ## Checkpoint 1C historical schema
 
 Checkpoint 1C introduced schema `denialdojo-pilot-trace-v1` and evaluator

@@ -101,6 +101,13 @@ delay cell. The upstream Workspace UserTask28 oracle remains unchanged; an
 identical ASCII-only clarification is a reliability control, not a new
 evaluator or attack-success prompt.
 
+Checkpoint 1E qualified local `qwen3:8b` for sequential tool calling but did
+not pass the unchanged benign readiness gate. Both delay-0 state cells had two
+protocol-conformant, utility-true completions. All four delay-2 runs made an
+invalid email call after only one post-denial nonsink call, so both delay-2
+cells failed and no attack/control pilot ran. This is infrastructure evidence,
+not a denial-leakage finding.
+
 ## First LLM pilot gate
 
 Do not begin the full 16-scenario matrix until one actual LLM agent completes

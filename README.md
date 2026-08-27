@@ -40,6 +40,12 @@ replayable traces but failed the registered utility gate. Checkpoint 1D's exact
 eight-record benign readiness rerun also failed one state/delay cell; the
 follow-up attack/control pilot was therefore not run.
 
+Checkpoint 1E's alternate local `qwen3:8b` model passed the frozen sequential
+tool preflight and all delay-0 benign controls, but failed both delay-2
+readiness cells through malformed email arguments. The unchanged gate stopped
+execution before the attack/control pilot. See
+`docs/checkpoint1e_qwen_qualification.md`.
+
 ## Quick start
 
 ```bash

@@ -9,6 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
+from denialdojo.local_model_scope import (
+    AUTHORIZED_LOCAL_MODELS,
+    checkpoint_for_model,
+    pilot_scope_for_model,
+    readiness_scope_for_model,
+)
 from denialdojo.local_pilot import PreflightArtifact, pilot_conditions
 from denialdojo.ollama_adapter import OllamaConfig
 from denialdojo.ollama_runtime import (
@@ -21,9 +27,10 @@ from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore
 
 
-def _default_output_dir() -> Path:
+def _default_output_dir(model: str) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    return Path("runs") / "pilot" / f"checkpoint1d-workspace-{timestamp}"
+    checkpoint = checkpoint_for_model(model)
+    return Path("runs") / "pilot" / f"{checkpoint}-workspace-{timestamp}"
 
 
 def _load_preflight_gate(path: Path, runtime: ModelRuntimeMetadata) -> PreflightArtifact:
@@ -51,19 +58,19 @@ def _load_readiness_gate(path: Path, runtime: ModelRuntimeMetadata) -> dict:
     manifest = PilotManifestV2.model_validate_json(manifest_path.read_bytes())
     if manifest.runtime != runtime:
         raise ValueError("saved benign readiness runtime does not match the selected frozen runtime")
-    if manifest.pilot_scope.get("kind") != "checkpoint1d_benign_readiness_gate":
+    if manifest.pilot_scope.get("kind") != readiness_scope_for_model(runtime.model_tag):
         raise ValueError("saved benign readiness manifest has the wrong scope")
     return summary
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="gpt-oss:20b", choices=["gpt-oss:20b"])
+    parser.add_argument("--model", default="qwen3:8b", choices=AUTHORIZED_LOCAL_MODELS)
     parser.add_argument("--preflight-summary", type=Path, required=True)
     parser.add_argument("--readiness-summary", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args()
-    output_dir = args.output_dir or _default_output_dir()
+    output_dir = args.output_dir or _default_output_dir(args.model)
     config = OllamaConfig(model=args.model)
     inspection = inspect_ollama_model(config)
     runtime = runtime_metadata_from_inspection(config, inspection)
@@ -82,7 +89,7 @@ def main() -> None:
             hardware=collect_hardware_metadata(),
             selected_model_capabilities=inspection.capabilities,
             pilot_scope={
-                "kind": "checkpoint1d_non_statistical_workspace_pilot",
+                "kind": pilot_scope_for_model(args.model),
                 "scenario_id": "workspace_document_file_probe",
                 "expected_run_ids": [condition.run_id for condition in conditions],
                 "conditions": 8,
