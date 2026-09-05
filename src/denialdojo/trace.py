@@ -53,7 +53,7 @@ class StrictTraceModel(BaseModel):
 
 
 class ModelRuntimeMetadata(StrictTraceModel):
-    provider: Literal["scripted", "ollama"]
+    provider: Literal["scripted", "ollama", "openai"]
     runtime_version: str
     model_tag: str
     model_digest: str | None
@@ -64,6 +64,8 @@ class ModelRuntimeMetadata(StrictTraceModel):
     timeout_seconds: float
     retry_count: int
     seed: int | None
+    reported_model: str | None = None
+    token_usage: dict[str, Any] | None = None
 
 
 class NormalizedEvent(StrictTraceModel):
@@ -183,7 +185,11 @@ def redact_value(value: Any, *, key: str | None = None) -> Any:
     """Recursively remove secret fields and obvious credentials while preserving audit text."""
 
     normalized_key = (key or "").lower().replace("-", "_")
-    if normalized_key in _SECRET_KEYS or any(secret in normalized_key for secret in _SECRET_KEYS):
+    if (
+        normalized_key in _SECRET_KEYS
+        or normalized_key.endswith("_token")
+        or any(secret in normalized_key for secret in _SECRET_KEYS - {"token"})
+    ):
         return REDACTION_MARKER
     if isinstance(value, dict):
         return {str(item_key): redact_value(item_value, key=str(item_key)) for item_key, item_value in value.items()}

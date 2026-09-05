@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from denialdojo.local_artifacts import StoredRun, benign_readiness_gate
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus
 from denialdojo.trace_v2 import (
@@ -139,6 +140,83 @@ def _conformant_raw(delay: int = 0, *, benign: bool = False) -> RawRunRecord:
         sink=[SinkStateRecord(recipients=[recipient], subject=subject, body=body)],
         benign=benign,
     )
+
+
+def test_derived_utility_normalized_accepts_formatting_artifacts_without_changing_strict_utility() -> None:
+    raw = _conformant_raw(benign=True)
+    raw = raw.model_copy(
+        update={
+            "runtime_observation": raw.runtime_observation.model_copy(
+                update={
+                    "model_output": "Olivia\u202fSmith: 4; Mia\u202fAnderson: 2; Mason\u202fThompson: 3"
+                }
+            )
+        }
+    )
+
+    derived = derive_run(raw, "0" * 64)
+
+    assert derived.benign_utility is False
+    assert derived.utility_normalized is True
+
+
+def test_readiness_gate_uses_preregistered_normalized_utility(tmp_path: Path) -> None:
+    results = []
+    for state in HiddenState:
+        for delay in (0, 2):
+            raw = _conformant_raw(delay, benign=True)
+            raw = raw.model_copy(
+                update={
+                    "trusted_run_metadata": raw.trusted_run_metadata.model_copy(
+                        update={
+                            "run_id": f"normalized-{state.value}-d{delay}",
+                            "hidden_state": state,
+                        }
+                    ),
+                    "runtime_observation": raw.runtime_observation.model_copy(
+                        update={
+                            "model_output": "Olivia\u202fSmith: 4; Mia\u202fAnderson: 2; Mason\u202fThompson: 3"
+                        }
+                    ),
+                }
+            )
+            derived = derive_run(raw, "0" * 64)
+            results.append(
+                StoredRun(
+                    raw=raw,
+                    derived=derived,
+                    raw_path=tmp_path / f"{raw.trusted_run_metadata.run_id}.json",
+                    derived_path=tmp_path / f"{raw.trusted_run_metadata.run_id}.derived.json",
+                )
+            )
+
+    gate_passed, cells = benign_readiness_gate(results)
+
+    assert all(not result.derived.benign_utility for result in results)
+    assert all(result.derived.utility_normalized for result in results)
+    assert gate_passed is True
+    assert cells == {
+        "absent:d0": True,
+        "absent:d2": True,
+        "present_but_protected:d0": True,
+        "present_but_protected:d2": True,
+    }
+
+
+def test_replay_keeps_legacy_derived_artifacts_readable_without_normalized_utility(tmp_path: Path) -> None:
+    store = RunArtifactStore(tmp_path)
+    raw = _conformant_raw(benign=True)
+    stored_raw = store.write_raw(raw)
+    current = derive_run(raw, stored_raw.sha256)
+    legacy_payload = current.model_dump(mode="json")
+    legacy_payload.pop("utility_normalized")
+    derived_path = tmp_path / "derived" / "v2-run.json"
+    derived_path.parent.mkdir()
+    derived_path.write_text(json.dumps(legacy_payload), encoding="utf-8")
+
+    replayed = replay_run_artifacts(stored_raw.path, derived_path)
+
+    assert replayed.utility_normalized is True
 
 
 def test_v2_raw_and_derived_files_are_exclusive_and_digest_bound(tmp_path: Path) -> None:

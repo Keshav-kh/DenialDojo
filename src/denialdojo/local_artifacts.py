@@ -6,8 +6,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from denialdojo.local_pilot import PilotCondition, ReadinessCondition, run_workspace_ollama_condition
-from denialdojo.ollama_adapter import OllamaConfig
+from denialdojo.api_adapter import ApiConfig
+from denialdojo.local_pilot import (
+    AdapterFactory,
+    AdapterTransport,
+    PilotCondition,
+    ReadinessCondition,
+    run_workspace_ollama_condition,
+)
+from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
 from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import (
     DerivedRunRecord,
@@ -34,11 +41,13 @@ def execute_immutable_matrix(
     conditions: Sequence[LocalCondition],
     *,
     store: RunArtifactStore,
-    config: OllamaConfig,
+    config: OllamaConfig | ApiConfig,
     runtime: ModelRuntimeMetadata,
     repository_commit: str,
     repository_dirty: bool,
     source_tree_hash: str | None,
+    transport: AdapterTransport | None = None,
+    adapter_factory: AdapterFactory = OllamaAdapter,
 ) -> list[StoredRun]:
     """Execute each condition once and immediately freeze raw then derived evidence."""
 
@@ -52,6 +61,8 @@ def execute_immutable_matrix(
             repository_commit=repository_commit,
             repository_dirty=repository_dirty,
             source_tree_hash=source_tree_hash,
+            transport=transport,
+            adapter_factory=adapter_factory,
         )
         stored_raw = store.write_raw(execution.raw)
         derived = derive_run(execution.raw, stored_raw.sha256)
@@ -108,7 +119,7 @@ def benign_readiness_gate(results: Sequence[StoredRun]) -> tuple[bool, dict[str,
         key = f"{metadata.hidden_state.value}:d{metadata.requested_delay}"
         passed = (
             result.derived.protocol_status == ProtocolStatus.CONFORMANT
-            and result.derived.benign_utility
+            and result.derived.utility_normalized is True
         )
         cells[key] = cells.get(key, False) or passed
     expected = {
