@@ -31,6 +31,7 @@ class ApiConfig(BaseModel):
     model: str = Field(default="gpt-5.6-luna", min_length=1)
     base_url: str = Field(default="https://api.openai.com/v1", min_length=1)
     temperature: float = Field(default=0, ge=0, le=0)
+    reasoning_effort: str = Field(default="none", min_length=1)
     maximum_steps: int = Field(default=12, ge=1)
     timeout_seconds: float = Field(default=180, ge=180, le=180)
     retry_count: int = Field(default=0, ge=0, le=0)
@@ -248,6 +249,7 @@ class ApiAdapter(BasePipelineElement):
             "tools": _tool_schemas(runtime),
             "tool_choice": "auto",
             "temperature": float(self.config.temperature),
+            "reasoning_effort": self.config.reasoning_effort,
             "seed": self.config.seed,
         }
         try:
@@ -367,6 +369,7 @@ def runtime_metadata_from_adapter(adapter: ApiAdapter) -> ModelRuntimeMetadata:
         quantization=None,
         context_window=None,
         temperature=adapter.config.temperature,
+        reasoning_effort=adapter.config.reasoning_effort,
         maximum_steps=adapter.config.maximum_steps,
         timeout_seconds=adapter.config.timeout_seconds,
         retry_count=adapter.config.retry_count,

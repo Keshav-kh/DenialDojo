@@ -41,6 +41,7 @@ def _runtime_metadata(config: ApiConfig) -> ModelRuntimeMetadata:
         quantization=None,
         context_window=None,
         temperature=config.temperature,
+        reasoning_effort=config.reasoning_effort,
         maximum_steps=config.maximum_steps,
         timeout_seconds=config.timeout_seconds,
         retry_count=config.retry_count,
@@ -156,8 +157,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.6-luna")
     parser.add_argument("--base-url", default="https://api.openai.com/v1")
+    parser.add_argument("--reasoning-effort", default="none")
     args = parser.parse_args()
-    result = run_api_pilot(ApiConfig(model=args.model, base_url=args.base_url))
+    result = run_api_pilot(
+        ApiConfig(
+            model=args.model,
+            base_url=args.base_url,
+            reasoning_effort=args.reasoning_effort,
+        )
+    )
     print(json.dumps(result["preflight"]["summary"], indent=2))
     print(json.dumps(result["readiness"], indent=2))
 

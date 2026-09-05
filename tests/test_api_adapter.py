@@ -102,6 +102,7 @@ def test_adapter_uses_native_tool_calls_and_captures_auth_free_bodies(monkeypatc
     assert payload["model"] == "gpt-5.6-luna"
     assert payload["tool_choice"] == "auto"
     assert payload["temperature"] == 0.0
+    assert payload["reasoning_effort"] == "none"
     assert payload["seed"] == 0
     assert payload["tools"][0]["function"]["parameters"]["required"] == ["value"]
     assert messages[-1]["tool_calls"][0].id == "call_123"
@@ -114,6 +115,7 @@ def test_adapter_uses_native_tool_calls_and_captures_auth_free_bodies(monkeypatc
     metadata = runtime_metadata_from_adapter(adapter)
     assert metadata.provider == "openai"
     assert metadata.model_tag == "gpt-5.6-luna"
+    assert metadata.reasoning_effort == "none"
     assert metadata.reported_model == "gpt-5.6-luna-2026-09-01"
     assert metadata.token_usage == {"prompt_tokens": 12, "completion_tokens": 5, "total_tokens": 17}
 
@@ -221,6 +223,7 @@ def test_api_configuration_defaults_and_rejects_invalid_limits() -> None:
     assert config.base_url == "https://api.openai.com/v1"
     assert config.model == "gpt-5.6-luna"
     assert config.temperature == 0
+    assert config.reasoning_effort == "none"
     assert config.timeout_seconds == 180
     assert config.retry_count == 0
     with pytest.raises(ValueError, match="maximum_steps"):

@@ -134,6 +134,7 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
     raw_directory = tmp_path / "checkpoint1g-test-model-readiness" / "raw"
     first_raw = json.loads((raw_directory / "api-readiness-001.json").read_text(encoding="utf-8"))
     assert result["preflight"]["summary"]["sequential_tool_call_gate_passed"] is True
+    assert result["preflight"]["runtime"]["reasoning_effort"] == "none"
     assert readiness["records"] == 8
     assert readiness["benign_readiness_gate_passed"] is True
     assert len(list(raw_directory.glob("*.json"))) == 8
@@ -143,5 +144,6 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
         "completion_tokens": 2,
         "total_tokens": 12,
     }
+    assert first_raw["trusted_run_metadata"]["runtime"]["reasoning_effort"] == "none"
     assert "Authorization" not in json.dumps(first_raw)
     assert "sk-test-only-secret" not in json.dumps(first_raw)
