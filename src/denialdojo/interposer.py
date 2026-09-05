@@ -34,6 +34,7 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         defense_mode: DefenseMode,
         quarantine_window: int = 1,
         tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
+        event_observer: Callable[[MediatedToolEvent], None] | None = None,
     ) -> None:
         if quarantine_window < 1:
             raise ValueError("quarantine_window must be at least 1")
@@ -42,6 +43,7 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         self.quarantine_window = quarantine_window
         self.output_formatter = tool_output_formatter
         self.captured_events: list[MediatedToolEvent] = []
+        self.event_observer = event_observer
 
     def _should_block_sink(self, env) -> bool:
         monitor = env.monitor
@@ -150,6 +152,8 @@ class DenialAwareToolsExecutor(BasePipelineElement):
                         mediated=True,
                     )
                 )
+                if self.event_observer:
+                    self.event_observer(self.captured_events[-1])
             tool_results.append(
                 ChatToolResultMessage(
                     role="tool",

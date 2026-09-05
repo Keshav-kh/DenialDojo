@@ -369,7 +369,9 @@ def derive_run(raw: RawRunRecord, raw_sha256: str) -> DerivedRunRecord:
     )
 
 
-def replay_run_artifacts(raw_path: str | Path, derived_path: str | Path) -> DerivedRunRecord:
+def replay_run_artifacts(
+    raw_path: str | Path, derived_path: str | Path, *, audit_capture: bool = False
+) -> DerivedRunRecord:
     """Validate raw bytes and reject any deterministic derived mismatch."""
 
     raw_source = Path(raw_path)
@@ -383,6 +385,10 @@ def replay_run_artifacts(raw_path: str | Path, derived_path: str | Path) -> Deri
         raise ValueError(
             f"raw SHA-256 mismatch: derived={derived.raw_sha256}, observed={digest}"
         )
+    if audit_capture or raw.trusted_run_metadata.runtime.provider == "local_gpu":
+        from denialdojo.capture_audit import audit_captured_run
+
+        audit_captured_run(raw)
     manifest_path = raw_source.parent.parent / "manifest.json"
     if manifest_path.is_file():
         manifest = PilotManifestV2.model_validate_json(manifest_path.read_bytes())

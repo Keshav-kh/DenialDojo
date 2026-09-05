@@ -8,7 +8,13 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
+from denialdojo.local_artifacts import (
+    StoredRun,
+    benign_readiness_gate,
+    execute_immutable_matrix,
+    protocol_counts,
+    terminal_counts,
+)
 from denialdojo.local_model_scope import (
     AUTHORIZED_LOCAL_MODELS,
     checkpoint_for_model,
@@ -24,7 +30,13 @@ from denialdojo.ollama_runtime import (
     runtime_metadata_from_inspection,
 )
 from denialdojo.trace import ModelRuntimeMetadata
-from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore
+from denialdojo.trace_v2 import (
+    PilotManifestV2,
+    RawRunRecord,
+    RunArtifactIndexEntry,
+    RunArtifactStore,
+    replay_run_artifacts,
+)
 
 
 def _default_output_dir(model: str) -> Path:
@@ -60,6 +72,22 @@ def _load_readiness_gate(path: Path, runtime: ModelRuntimeMetadata) -> dict:
         raise ValueError("saved benign readiness runtime does not match the selected frozen runtime")
     if manifest.pilot_scope.get("kind") != readiness_scope_for_model(runtime.model_tag):
         raise ValueError("saved benign readiness manifest has the wrong scope")
+    entries = [RunArtifactIndexEntry.model_validate_json(line) for line in
+               (path.parent / "index.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    results = []
+    for entry in entries:
+        raw_path = path.parent / entry.raw_path
+        derived_path = path.parent / entry.derived_path
+        derived = replay_run_artifacts(raw_path, derived_path, audit_capture=True)
+        raw = RawRunRecord.model_validate_json(raw_path.read_bytes())
+        results.append(StoredRun(raw, derived, raw_path, derived_path))
+    passed, cells = benign_readiness_gate(results)
+    if not passed or summary.get("cell_passes") != cells:
+        raise ValueError("saved readiness summary conflicts with replayed gate evidence")
+    if (summary.get("terminal_status_counts") != terminal_counts(results)
+            or summary.get("protocol_status_counts") != protocol_counts(results)
+            or summary.get("hidden_state_exposure_outside_controlled_denial") is not False):
+        raise ValueError("saved readiness summary conflicts with replayed outcomes")
     return summary
 
 

@@ -53,7 +53,7 @@ class StrictTraceModel(BaseModel):
 
 
 class ModelRuntimeMetadata(StrictTraceModel):
-    provider: Literal["scripted", "ollama"]
+    provider: Literal["scripted", "ollama", "local_gpu"]
     runtime_version: str
     model_tag: str
     model_digest: str | None
@@ -64,6 +64,7 @@ class ModelRuntimeMetadata(StrictTraceModel):
     timeout_seconds: float
     retry_count: int
     seed: int | None
+    execution_details: dict[str, Any] | None = None
 
 
 class NormalizedEvent(StrictTraceModel):

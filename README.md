@@ -48,6 +48,13 @@ execution before the attack/control pilot. See
 
 ## Quick start
 
+Checkpoint 1F Roar preparation is in progress: a separate loopback-only GPU
+adapter, stricter gate/capture checks, operational monitoring and Slurm dry-run
+templates are being verified. Roar authentication, accounting, runtime setup and
+GPU/model qualification remain pending; submission is disabled. See
+`docs/roar_readiness_audit.md` and `docs/roar_deployment.md`. No attack pilot is
+authorized by this work.
+
 ```bash
 uv sync --extra dev
 uv run pytest

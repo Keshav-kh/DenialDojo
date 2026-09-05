@@ -157,3 +157,13 @@ Those calls were rejected before genuine sink execution as
 delay was unavailable. Both delay-2 state cells therefore failed the unchanged
 gate. No retry or attack/control pilot followed. See
 `docs/checkpoint1e_qwen_qualification.md` for the complete matrix and hashes.
+# Checkpoint 1F status: local Roar preparation, not qualification
+
+The GPU-compatible adapter and offline qualification/monitoring tests do not
+constitute a model result. Prior `gpt-oss:20b` and `qwen3:8b` readiness failures
+are unchanged. No third model has been selected, downloaded or run. Roar live
+discovery/accounting and bounded smoke are still prerequisites. Execution is
+disabled until those site-specific checks are integrated. See
+`roar_readiness_audit.md` and `roar_deployment.md` for the audit findings and
+explicit no-go checklist. Hosted comparison and actual attack pilots remain
+future, separately authorized work.

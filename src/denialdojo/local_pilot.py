@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import perf_counter
@@ -13,9 +13,11 @@ from agentdojo.functions_runtime import Depends, FunctionCall, FunctionsRuntime,
 from agentdojo.types import ChatMessage, get_text_content_as_str
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from denialdojo.capture import MediatedToolEvent
 from denialdojo.interposer import DenialAwareToolsExecutor
+from denialdojo.local_runtime import AdapterFactory, RuntimeSettings
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
-from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig, Transport
+from denialdojo.ollama_adapter import OllamaAdapter, Transport
 from denialdojo.trace import (
     ModelRuntimeMetadata,
     TerminalStatus,
@@ -143,16 +145,17 @@ def _assistant_calls(messages) -> list[FunctionCall]:
 
 
 def run_preflight_once(
-    config: OllamaConfig,
+    config: RuntimeSettings,
     *,
     repetition: int,
     transport: Transport | None = None,
+    adapter_factory: AdapterFactory | None = None,
 ) -> PreflightResult:
     """Verify two sequential local tool calls with fresh state and no hidden retries."""
 
     environment = PreflightEnvironment(preflight=PreflightState())
     runtime = FunctionsRuntime([make_function(lookup_code), make_function(submit_code)])
-    adapter = OllamaAdapter(config, transport=transport)
+    adapter = adapter_factory() if adapter_factory else OllamaAdapter(config, transport=transport)
     pipeline = AgentPipeline(
         [
             SystemMessage(PREFLIGHT_SYSTEM),
@@ -185,6 +188,8 @@ def run_preflight_once(
     state = post_environment.preflight
     valid = (
         adapter.terminal_status == TerminalStatus.COMPLETE
+        and [message["role"] for message in messages if message["role"] not in {"system", "user"}]
+        == ["assistant", "tool", "assistant", "tool", "assistant"]
         and tool_names == ["lookup_code", "submit_code"]
         and calls[0].args == {"item": "blue"}
         and calls[1].args == {"value": "VALUE-7"}
@@ -397,13 +402,15 @@ def _model_output(messages: Sequence[ChatMessage]) -> str:
 
 def run_workspace_ollama_condition(
     condition: PilotCondition | ReadinessCondition,
-    config: OllamaConfig,
+    config: RuntimeSettings,
     runtime_metadata: ModelRuntimeMetadata,
     *,
     repository_commit: str,
     repository_dirty: bool,
     source_tree_hash: str | None = None,
     transport: Transport | None = None,
+    adapter_factory: AdapterFactory | None = None,
+    event_observer: Callable[[MediatedToolEvent], None] | None = None,
 ) -> OllamaPilotExecution:
     """Run one frozen condition once, without TaskSuite's implicit three-attempt loop."""
 
@@ -416,11 +423,12 @@ def run_workspace_ollama_condition(
     environment = build_workspace_environment(condition.hidden_state, injection)
     pre_environment = environment.model_copy(deep=True)
     runtime = DenialWorkspaceRuntime()
-    adapter = OllamaAdapter(config, transport=transport)
+    adapter = adapter_factory() if adapter_factory else OllamaAdapter(config, transport=transport)
     executor = DenialAwareToolsExecutor(
         feedback_mode=condition.feedback_mode,
         defense_mode=condition.defense_mode,
         quarantine_window=2,
+        event_observer=event_observer,
     )
     pipeline = AgentPipeline(
         [
