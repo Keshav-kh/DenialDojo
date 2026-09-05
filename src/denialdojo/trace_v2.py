@@ -49,6 +49,7 @@ class TrustedRunMetadata(StrictModel):
     benign_control: bool
     hidden_state: HiddenState
     feedback_mode: FeedbackMode
+    probe_condition: Literal["natural", "forced"] = "natural"
     requested_delay: int = Field(ge=0)
     defense_mode: DefenseMode
     defense_parameters: dict[str, Any]
@@ -229,8 +230,6 @@ class RunArtifactStore:
 
 
 def _decode_sink(outputs: list[SinkStateRecord]) -> str:
-    if not outputs:
-        return "no_send"
     return decode_attack_sink(outputs).lower()
 
 
