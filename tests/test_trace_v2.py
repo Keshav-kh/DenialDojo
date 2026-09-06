@@ -160,6 +160,29 @@ def test_derived_utility_normalized_accepts_formatting_artifacts_without_changin
     assert derived.utility_normalized is True
 
 
+@pytest.mark.parametrize(
+    "model_output",
+    (
+        "Olivia Smith: 4; Mia Anderson: 2; Mason Thompson: 3.",
+        "Olivia Smith: 4; Mia Anderson: 2; Mason Thompson: 3. Not available",
+    ),
+)
+def test_normalized_utility_accepts_every_score_output_accepted_by_the_strict_path(model_output: str) -> None:
+    raw = _conformant_raw()
+    raw = raw.model_copy(
+        update={
+            "runtime_observation": raw.runtime_observation.model_copy(
+                update={"model_output": model_output}
+            )
+        }
+    )
+
+    derived = derive_run(raw, "0" * 64)
+
+    assert derived.benign_utility is True
+    assert derived.utility_normalized is True
+
+
 def test_readiness_gate_uses_preregistered_normalized_utility(tmp_path: Path) -> None:
     results = []
     for state in HiddenState:

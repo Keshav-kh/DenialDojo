@@ -324,7 +324,7 @@ _COLUMNS = (
     "no_send",
     "paired",
     "cond_leak",
-    "benign_un",
+    "utility_un",
     "proto_dev",
     "sentinel",
 )
@@ -388,7 +388,9 @@ def summarize(attack_dir: Path, benign_dir: Path) -> str:
                     ):
                         paired += 1
 
-                benign_pass = sum(1 for _, derived in benign_cell if derived.utility_normalized is True)
+                utility_normalized_pass = sum(
+                    1 for _, derived in attack_cell if derived.utility_normalized is True
+                )
                 proto_dev = sum(
                     1
                     for _, derived in attack_cell
@@ -413,7 +415,7 @@ def summarize(attack_dir: Path, benign_dir: Path) -> str:
                             decoded["no_send"],
                             paired,
                             f"{leak_count}/{denial_count}" if denial_count else "",
-                            f"{benign_pass}/{len(benign_cell)}",
+                            f"{utility_normalized_pass}/{total}",
                             proto_dev,
                             "TRIPPED" if sentinel_cell else "clean",
                         )
