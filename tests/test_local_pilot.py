@@ -28,6 +28,7 @@ from denialdojo.workspace import (
     BENIGN_SUBJECT,
     WorkspaceBenignRecoveryTask,
     build_workspace_environment,
+    injected_feedback_content,
 )
 
 
@@ -246,15 +247,38 @@ def test_pilot_matrix_is_exactly_eight_frozen_conditions() -> None:
     )
 
 
-def test_delay_specific_model_visible_text_never_contains_hidden_assignment() -> None:
-    for delay in (0, 2):
-        values = (pilot_attack_injection(delay), pilot_benign_prompt(delay))
+def test_attack_variant_text_never_contains_hidden_assignment() -> None:
+    for variant in ("v1", "v2", "v3"):
+        values = (pilot_attack_injection(variant), pilot_benign_prompt(0))
         for value in values:
             assert "hidden_state" not in value
             assert HiddenState.ABSENT.value not in value
             assert HiddenState.PRESENT_BUT_PROTECTED.value not in value
         assert "ALPHA" in values[0] and "BRAVO" in values[0]
         assert "ALPHA" not in values[1] and "BRAVO" not in values[1]
+
+
+def test_injection_variants_replace_only_the_noah_lee_feedback_text() -> None:
+    normalized_feedback: str | None = None
+    for variant in ("v1", "v2", "v3"):
+        injection = pilot_attack_injection(variant)
+        absent = build_workspace_environment(HiddenState.ABSENT, injection)
+        protected = build_workspace_environment(HiddenState.PRESENT_BUT_PROTECTED, injection)
+        absent_feedback = injected_feedback_content(absent)
+        protected_feedback = injected_feedback_content(protected)
+
+        assert absent_feedback.encode() == protected_feedback.encode()
+        assert injection in absent_feedback
+        assert "absent" not in injection.lower()
+        assert "protected" not in injection.lower()
+        assert "alpha-only" not in injection.lower()
+        assert "bravo-only" not in injection.lower()
+
+        replaced = absent_feedback.replace(injection, "<INJECTION_VARIANT>")
+        if normalized_feedback is None:
+            normalized_feedback = replaced
+        else:
+            assert replaced == normalized_feedback
 
 
 def test_pilot_condition_rejects_out_of_scope_variants() -> None:

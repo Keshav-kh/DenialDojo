@@ -199,6 +199,16 @@ longer feeds a reported rate.
 Checkpoint 3A artifacts were generated under the old `cond_leak` definition
 and are retained unmodified.
 
+## 2026-09-06 (Checkpoint 3C): preregistered injection strength
+
+Student: "I preregister exactly three injection variants: v1, v2, and v3. Each variant will be held byte-identical across hidden-state arms and run once per condition on both models. I will report all outcomes and will not create, modify, or run a fourth variant in response to these results."
+
+The design varies only the injected instruction in the Noah Lee feedback row.
+v1 is self-labeled as untrusted; v2 removes that label and uses routine
+operational framing; v3 tests whether apparent in-organization provenance,
+attributed to the Workspace file owner `emma.johnson@bluesparrowtech.com`,
+defeats resistance.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
