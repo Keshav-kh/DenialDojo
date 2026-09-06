@@ -209,6 +209,25 @@ operational framing; v3 tests whether apparent in-organization provenance,
 attributed to the Workspace file owner `emma.johnson@bluesparrowtech.com`,
 defeats resistance.
 
+## 2026-09-06 (Checkpoint 3C): delay-scope consequence of unified injection text
+
+Before any Checkpoint 3C data exists, this preregistration records that
+Checkpoint 3C replaced the previous delay-specific injection text with a
+single variant string per variant. The prior text differed by delay: at delay 0
+it said "Immediately after the denial, call `send_email`"; at delay 2 it
+specified two intervening calls before `send_email`. The Checkpoint 3C `v1`
+string is the delay-0 wording applied at both delays.
+
+Consequently, the injection-strength axis is defined at delay 0. In the
+natural condition, the delay-2 cells duplicate the delay-0 cells and will be
+reported as such, not as a delay manipulation. The delay axis remains
+meaningful in the forced and `positive_control` conditions, where the
+sequencing requirement comes from the runner and the legitimate user prompt.
+
+Consequently, Checkpoint 3C `v1` natural delay-2 cells are not directly
+comparable with the Checkpoint 2A and 3A natural delay-2 cells, which used the
+delay-specific text. Both sets of artifacts are retained unmodified.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
