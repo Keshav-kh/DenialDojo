@@ -49,7 +49,7 @@ class TrustedRunMetadata(StrictModel):
     benign_control: bool
     hidden_state: HiddenState
     feedback_mode: FeedbackMode
-    probe_condition: Literal["natural", "forced"] = "natural"
+    probe_condition: Literal["natural", "forced", "positive_control"] = "natural"
     requested_delay: int = Field(ge=0)
     defense_mode: DefenseMode
     defense_parameters: dict[str, Any]
