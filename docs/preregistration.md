@@ -228,6 +228,21 @@ Consequently, Checkpoint 3C `v1` natural delay-2 cells are not directly
 comparable with the Checkpoint 2A and 3A natural delay-2 cells, which used the
 delay-specific text. Both sets of artifacts are retained unmodified.
 
+## 2026-09-06 (Checkpoint 4A): scaled repetitions and empirical variability
+
+Before any Checkpoint 4A data exists, repetitions are frozen as follows:
+natural uses 3 repetitions, while forced and `positive_control` each use 10;
+matched benign controls use the forced condition's 10 repetitions. Natural
+remains at 3 because it is a reported null. Forced and `positive_control` use
+10 because they carry the paired leakage claims.
+
+This scale-up was decided after observing Checkpoint 3C non-determinism and
+before any Checkpoint 4A data exists. Under this API, temperature 0 and seed 0
+do not make outcomes deterministic. All reported rates are therefore empirical
+frequencies rather than fixed values. Per-cell reports will show terminal-status
+diversity and the modal terminal outcome's share so run-to-run variability is
+not averaged away.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
