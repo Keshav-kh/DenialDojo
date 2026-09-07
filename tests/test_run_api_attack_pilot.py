@@ -512,6 +512,49 @@ def test_paired_cond_leak_excludes_a_pair_without_two_denials() -> None:
     assert run_api_attack_pilot._paired_conditional_leakage(arms) == (0, 0)
 
 
+def test_positive_control_scale_preserves_counterfactual_pairs(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
+    config = ApiConfig(model="test-model")
+    readiness = _passing_readiness(tmp_path, config)
+    run_attack_pilot(
+        config,
+        readiness_summary=readiness,
+        output_root=tmp_path / "out",
+        transport=AttackScriptedTransport(),
+    )
+
+    attack = run_api_attack_pilot._load_arm(tmp_path / "out" / "checkpoint4a-test-model-attack")
+    cell = [
+        (raw, derived)
+        for raw, derived in attack
+        if raw.trusted_run_metadata.probe_condition == "positive_control"
+        and raw.trusted_run_metadata.feedback_mode == FeedbackMode.REASON_BEARING
+        and raw.trusted_run_metadata.requested_delay == 0
+    ]
+    assert len(cell) == 20
+
+    groups: dict[str, list[RawRunRecord]] = {}
+    for raw, _ in cell:
+        groups.setdefault(raw.trusted_run_metadata.paired_run_group_id, []).append(raw)
+    assert len(groups) == 10
+    for records in groups.values():
+        metadata = [record.trusted_run_metadata for record in records]
+        assert len(records) == 2
+        assert {item.hidden_state for item in metadata} == set(HiddenState)
+        assert len({item.repetition for item in metadata}) == 1
+
+    arms = [
+        _metric_arm(
+            raw.trusted_run_metadata.paired_run_group_id,
+            raw.trusted_run_metadata.hidden_state,
+            derived.denial_observed,
+            derived.decoded_sink_outcome,
+        )
+        for raw, derived in cell
+    ]
+    assert run_api_attack_pilot._paired_conditional_leakage(arms)[1] == 10
+
+
 def test_terminal_variability_reports_distinct_statuses_and_modal_share() -> None:
     assert run_api_attack_pilot._terminal_variability(
         [
