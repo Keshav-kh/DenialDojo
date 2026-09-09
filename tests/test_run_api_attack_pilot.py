@@ -9,6 +9,7 @@ import pytest
 from denialdojo import run_api_attack_pilot
 from denialdojo.api_adapter import ApiConfig
 from denialdojo.local_artifacts import execute_immutable_matrix
+from denialdojo.local_pilot import run_workspace_ollama_condition
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.run_api_attack_pilot import (
     AttackPilotCondition,
@@ -24,6 +25,7 @@ from denialdojo.trace_v2 import (
     RawRunRecord,
     RunArtifactIndexEntry,
     RunArtifactStore,
+    derive_run,
     replay_run_artifacts,
 )
 
@@ -170,7 +172,7 @@ def _rows(table: str) -> dict[tuple[str, str, str, str], list[str]]:
             continue
         fields = [cell.strip() for cell in line.split("|")]
         if fields[0] in {"natural", "forced", "positive_control"}:
-            rows[(fields[0], fields[1], fields[2], fields[3])] = fields
+            rows[(fields[0], fields[1], fields[2], fields[4])] = fields
     return rows
 
 
@@ -303,7 +305,8 @@ def test_attack_pilot_condition_rejects_out_of_scope_variants() -> None:
     }
     for bad in (
         {"delay": 1},
-        {"defense_mode": DefenseMode.IMMEDIATE_ADJACENCY},
+        {"defense_mode": "unrecognised"},
+        {"quarantine_k": 3},
         {"probe_condition": "opportunistic"},
         {"injection_variant": "v4"},
         {"probe_condition": "forced", "injection_variant": "v2"},
@@ -346,6 +349,10 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
             "5",
             "--positive-control-repetitions",
             "6",
+            "--defense-mode",
+            "fixed_quarantine",
+            "--quarantine-k",
+            "7",
         ],
     )
 
@@ -354,6 +361,165 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
     assert captured["natural_repetitions"] == 4
     assert captured["forced_repetitions"] == 5
     assert captured["positive_control_repetitions"] == 6
+    assert captured["defense_mode"] == DefenseMode.FIXED_QUARANTINE
+    assert captured["quarantine_k"] == 7
+
+
+@pytest.mark.parametrize("defense_mode", ["none", "immediate_adjacency"])
+def test_run_cli_rejects_quarantine_k_for_non_quarantine_modes(
+    monkeypatch, tmp_path: Path, capsys, defense_mode: str
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_api_attack_pilot",
+            "run",
+            "--readiness-summary",
+            str(tmp_path / "readiness.json"),
+            "--defense-mode",
+            defense_mode,
+            "--quarantine-k",
+            "2",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as error:
+        run_api_attack_pilot.main()
+
+    assert error.value.code == 2
+    assert "--quarantine-k is only valid with --defense-mode fixed_quarantine" in capsys.readouterr().err
+
+
+def test_attack_pilot_factory_applies_the_requested_defense_and_quarantine_k() -> None:
+    natural_repetitions = 1
+    forced_repetitions = 2
+    positive_control_repetitions = 2
+    conditions = attack_pilot_conditions(
+        natural_repetitions=natural_repetitions,
+        forced_repetitions=forced_repetitions,
+        positive_control_repetitions=positive_control_repetitions,
+        defense_mode=DefenseMode.FIXED_QUARANTINE,
+        quarantine_k=3,
+    )
+    attack = [condition for condition in conditions if not condition.benign_control]
+    benign = [condition for condition in conditions if condition.benign_control]
+    natural_cells = 3 * len(FeedbackMode) * len(HiddenState) * 2
+    ordinary_cells = len(FeedbackMode) * len(HiddenState) * 2
+
+    assert len(attack) == natural_cells * natural_repetitions + ordinary_cells * (
+        forced_repetitions + positive_control_repetitions
+    )
+    assert len(benign) == ordinary_cells * forced_repetitions
+    assert {condition.defense_mode for condition in conditions} == {DefenseMode.FIXED_QUARANTINE}
+    assert {condition.quarantine_k for condition in conditions} == {3}
+
+
+def test_paired_run_group_ids_do_not_cross_defense_modes() -> None:
+    base = {
+        "hidden_state": HiddenState.ABSENT,
+        "probe_condition": "positive_control",
+        "feedback_mode": FeedbackMode.REASON_BEARING,
+        "delay": 0,
+        "benign_control": False,
+        "repetition": 0,
+        "run_ordinal": 1,
+    }
+    none = AttackPilotCondition(**base, defense_mode=DefenseMode.NONE)
+    immediate = AttackPilotCondition(**base, defense_mode=DefenseMode.IMMEDIATE_ADJACENCY)
+    quarantine = AttackPilotCondition(**base, defense_mode=DefenseMode.FIXED_QUARANTINE)
+
+    assert len({none.paired_run_group_id, immediate.paired_run_group_id, quarantine.paired_run_group_id}) == 3
+
+
+def _live_defense_execution(
+    monkeypatch,
+    *,
+    hidden_state: HiddenState,
+    feedback_mode: FeedbackMode,
+    defense_mode: DefenseMode,
+):
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
+    config = ApiConfig(model="test-model")
+    condition = AttackPilotCondition(
+        hidden_state=hidden_state,
+        probe_condition="positive_control",
+        feedback_mode=feedback_mode,
+        delay=0,
+        benign_control=False,
+        defense_mode=defense_mode,
+        quarantine_k=2,
+        repetition=0,
+        run_ordinal=1,
+    )
+    return run_workspace_ollama_condition(
+        condition,
+        config,
+        run_api_attack_pilot._runtime_metadata(config),
+        repository_commit="0" * 40,
+        repository_dirty=False,
+        source_tree_hash="tree",
+        transport=AttackScriptedTransport(),
+        adapter_factory=run_api_attack_pilot.ApiAdapter,
+    )
+
+
+@pytest.mark.parametrize(
+    ("defense_mode", "expected_interventions"),
+    [
+        (DefenseMode.NONE, 0),
+        (DefenseMode.IMMEDIATE_ADJACENCY, 1),
+        (DefenseMode.FIXED_QUARANTINE, 1),
+    ],
+)
+def test_live_runner_records_policyblocked_external_sink_interventions(
+    monkeypatch, defense_mode: DefenseMode, expected_interventions: int
+) -> None:
+    execution = _live_defense_execution(
+        monkeypatch,
+        hidden_state=HiddenState.ABSENT,
+        feedback_mode=FeedbackMode.REASON_BEARING,
+        defense_mode=defense_mode,
+    )
+    blocked = [
+        event
+        for event in execution.raw.mediated_events
+        if event.classification == "external_sink"
+        and event.error is not None
+        and event.error.startswith("PolicyBlocked")
+    ]
+    derived = derive_run(execution.raw, "0" * 64)
+
+    assert execution.raw.trusted_run_metadata.defense_mode == defense_mode
+    assert execution.raw.trusted_run_metadata.quarantine_k == 2
+    assert derived.intervention_count == expected_interventions == len(blocked)
+
+
+def test_live_runner_returns_one_constant_block_message_across_counterfactual_arms(monkeypatch) -> None:
+    blocked_results = set()
+    for hidden_state in HiddenState:
+        for feedback_mode in FeedbackMode:
+            execution = _live_defense_execution(
+                monkeypatch,
+                hidden_state=hidden_state,
+                feedback_mode=feedback_mode,
+                defense_mode=DefenseMode.FIXED_QUARANTINE,
+            )
+            blocked = [
+                event
+                for event in execution.raw.mediated_events
+                if event.classification == "external_sink"
+                and event.error is not None
+                and event.error.startswith("PolicyBlocked")
+            ]
+            assert len(blocked) == 1
+            blocked_results.add(blocked[0].result)
+
+    assert blocked_results == {"BLOCKED:POST_DENIAL_POLICY"}
+    message = next(iter(blocked_results))
+    assert message.encode("utf-8") == b"BLOCKED:POST_DENIAL_POLICY"
+    assert "denied" not in message.lower()
+    assert "permission" not in message.lower()
 
 
 def test_attack_pilot_output_directories_are_model_scoped() -> None:
@@ -605,7 +771,7 @@ def test_summary_includes_benign_cells_in_the_non_determinism_report(small_matri
 
     report = table.split("non-determinism by cell", maxsplit=1)[1]
     rows = [[cell.strip() for cell in line.split("|")] for line in report.splitlines() if "|" in line]
-    assert ["benign", "forced", "v1", "reason_bearing", "0", "1", "complete:4/4"] in rows
+    assert ["benign", "forced", "v1", "reason_bearing", "none", "0", "1", "complete:4/4"] in rows
 
 
 def test_summary_reports_probe_send_denial_and_conditional_leakage_per_cell(small_matrix) -> None:
@@ -622,6 +788,7 @@ def test_summary_reports_probe_send_denial_and_conditional_leakage_per_cell(smal
 
     natural = rows[("natural", "v1", "reason_bearing", "0")]
     assert natural[idx["injection_variant"]] == "v1"
+    assert natural[idx["defense_mode"]] == "none"
     assert natural[idx["probe_rate"]] == "0/2"
     assert natural[idx["send_rate"]] == "0/2"
     assert natural[idx["denial_rate"]] == "0/2"

@@ -53,6 +53,7 @@ class TrustedRunMetadata(StrictModel):
     injection_variant: Literal["v1", "v2", "v3"] = "v1"
     requested_delay: int = Field(ge=0)
     defense_mode: DefenseMode
+    quarantine_k: int = Field(default=2, ge=1)
     defense_parameters: dict[str, Any]
     runtime: ModelRuntimeMetadata
     repetition: int = Field(ge=0)

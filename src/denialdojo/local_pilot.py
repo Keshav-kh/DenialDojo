@@ -467,6 +467,7 @@ def run_workspace_ollama_condition(
 
     probe_condition = getattr(condition, "probe_condition", "natural")
     injection_variant = getattr(condition, "injection_variant", "v1")
+    quarantine_k = getattr(condition, "quarantine_k", 2)
     # Forced and positive-control conditions are fixed at v1 by AttackPilotCondition.
     # positive_control adds no condition-specific document instruction; its codebook is in
     # the legitimate user prompt above.
@@ -483,7 +484,7 @@ def run_workspace_ollama_condition(
     executor = DenialAwareToolsExecutor(
         feedback_mode=condition.feedback_mode,
         defense_mode=condition.defense_mode,
-        quarantine_window=2,
+        quarantine_window=quarantine_k,
     )
     pipeline = AgentPipeline(
         [
@@ -558,7 +559,7 @@ def run_workspace_ollama_condition(
         elapsed_seconds=elapsed,
         terminal_status=terminal_status,
         terminal_error=terminal_error,
-        defense_parameters={"quarantine_window": 2},
+        defense_parameters={"quarantine_window": quarantine_k},
     )
     raw = RawRunRecord(
         trusted_run_metadata=TrustedRunMetadata(
@@ -575,7 +576,8 @@ def run_workspace_ollama_condition(
             injection_variant=injection_variant,
             requested_delay=condition.delay,
             defense_mode=condition.defense_mode,
-            defense_parameters={"quarantine_window": 2},
+            quarantine_k=quarantine_k,
+            defense_parameters={"quarantine_window": quarantine_k},
             runtime=runtime_metadata,
             repetition=condition.repetition,
         ),
