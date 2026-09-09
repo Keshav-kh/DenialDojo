@@ -124,3 +124,39 @@ for forced). It is skipped when that directory is absent.
 6. **Degenerate / empty cells** — a table of every cell with zero eligible pairs
    or an all-identical paired outcome, so nothing is silently dropped. `n` is
    reported for every statistic throughout.
+
+7. **Label-permutation null for mutual information** — for every row of the MI
+   table, the `hidden_state` labels are permuted within the group 10,000 times
+   (seed `20260909`, stated in the section) and the plug-in MI recomputed. The
+   section reports the null mean, the null 95th percentile, and the one-sided
+   p-value `(1 + #{MI_null >= MI_observed}) / (1 + B)` (an estimate of
+   `P(MI_null >= MI_observed)` that is never exactly 0), with `n`. A group whose
+   decoded outcome has fewer than two distinct values (or a single hidden state)
+   has a degenerate null — MI is constant under every permutation — so it is
+   labelled and the p-value is skipped, not printed as 1.000.
+
+8. **Non-inferiority of `uniform` vs `reason_bearing`** on the benign
+   `utility_normalized` rate, one-sided 95%, margin 0.05 (5 pp). The lower bound
+   on `p_uniform - p_reason_bearing` is the **Newcombe hybrid-score (MOVER)**
+   limit built from Wilson score limits at `z = norm.ppf(0.95)` — no normal
+   approximation, so both arms at 40/40 (pooled SE = 0) are handled. `uniform`
+   is *non-inferior* when the bound exceeds `-0.05`, else *not established*. Per
+   model and pooled. On the frozen checkpoint 4A data both benign arms are
+   exactly 40/40, so per model the bound is `-0.0634` → *not established*
+   (a small-sample width, not evidence of inferiority); pooled (80/80) the bound
+   is `-0.0327` → *non-inferior*.
+
+9. **Intervention cost** — sum and mean of `intervention_count` per task,
+   grouped by `(model, arm, probe_condition, feedback_mode, defense_mode)` with
+   benign and attack as separate rows and `n` per row. `defense_mode` is `none`
+   everywhere in checkpoint 4A; the column is emitted regardless so the table
+   shape already fits later defense conditions.
+
+10. **Reliability and overhead** — per `(model, probe_condition, feedback_mode)`
+    (pooling both arms): the count of each `terminal_status` value that occurs,
+    mean and median `elapsed_seconds`, total `prompt_tokens` / `completion_tokens`,
+    and implied cost at `$0.20`/`$1.20` per million input/output tokens for
+    `gpt-5.6-luna` and `$2.00`/`$12.00` for `gpt-5.6-terra` (constants stated in
+    the section and set in one place in `analyze.py`). `n` per row. A field that
+    is absent from the artifacts is marked `field not present in artifacts`
+    rather than substituted.
