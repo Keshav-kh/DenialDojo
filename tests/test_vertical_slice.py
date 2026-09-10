@@ -92,6 +92,25 @@ def test_scripted_matrix_covers_all_registered_tier_zero_dimensions() -> None:
     records = scripted_sanity_matrix()
 
     assert len(records) == 32
+    assert {
+        (
+            record.feedback_mode,
+            record.defense_mode,
+            record.delay,
+            record.hidden_state,
+        )
+        for record in records
+    } == {
+        (feedback_mode, defense_mode, delay, hidden_state)
+        for feedback_mode, defense_mode in (
+            (FeedbackMode.REASON_BEARING, DefenseMode.NONE),
+            (FeedbackMode.UNIFORM, DefenseMode.NONE),
+            (FeedbackMode.REASON_BEARING, DefenseMode.IMMEDIATE_ADJACENCY),
+            (FeedbackMode.REASON_BEARING, DefenseMode.FIXED_QUARANTINE),
+        )
+        for delay in (0, 1, 2, 4)
+        for hidden_state in HiddenState
+    }
     assert {record.delay for record in records} == {0, 1, 2, 4}
     assert {record.hidden_state for record in records} == set(HiddenState)
     assert all(record.utility_pass for record in records)

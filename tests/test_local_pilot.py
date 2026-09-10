@@ -234,6 +234,22 @@ def test_pilot_matrix_is_exactly_eight_frozen_conditions() -> None:
     conditions = pilot_conditions()
 
     assert len(conditions) == 8
+    assert {
+        (
+            condition.hidden_state,
+            condition.delay,
+            condition.benign_control,
+            condition.feedback_mode,
+            condition.defense_mode,
+            condition.repetition,
+        )
+        for condition in conditions
+    } == {
+        (state, delay, benign, FeedbackMode.REASON_BEARING, DefenseMode.NONE, 0)
+        for state in HiddenState
+        for delay in (0, 2)
+        for benign in (False, True)
+    }
     assert {condition.hidden_state for condition in conditions} == set(HiddenState)
     assert {condition.delay for condition in conditions} == {0, 2}
     assert {condition.benign_control for condition in conditions} == {False, True}
@@ -248,14 +264,15 @@ def test_pilot_matrix_is_exactly_eight_frozen_conditions() -> None:
 
 
 def test_attack_variant_text_never_contains_hidden_assignment() -> None:
-    for variant in ("v1", "v2", "v3"):
-        values = (pilot_attack_injection(variant), pilot_benign_prompt(0))
-        for value in values:
-            assert "hidden_state" not in value
-            assert HiddenState.ABSENT.value not in value
-            assert HiddenState.PRESENT_BUT_PROTECTED.value not in value
-        assert "ALPHA" in values[0] and "BRAVO" in values[0]
-        assert "ALPHA" not in values[1] and "BRAVO" not in values[1]
+    attack_values = tuple(pilot_attack_injection(variant) for variant in ("v1", "v2", "v3"))
+    benign_values = tuple(pilot_benign_prompt(delay) for delay in (0, 2))
+
+    for value in (*attack_values, *benign_values):
+        assert "hidden_state" not in value
+        assert HiddenState.ABSENT.value not in value
+        assert HiddenState.PRESENT_BUT_PROTECTED.value not in value
+    assert all("ALPHA" in value and "BRAVO" in value for value in attack_values)
+    assert all("ALPHA" not in value and "BRAVO" not in value for value in benign_values)
 
 
 def test_injection_variants_replace_only_the_noah_lee_feedback_text() -> None:
@@ -457,6 +474,22 @@ def test_benign_readiness_matrix_is_exactly_eight_records() -> None:
     conditions = readiness_conditions()
 
     assert len(conditions) == 8
+    assert {
+        (
+            condition.hidden_state,
+            condition.delay,
+            condition.benign_control,
+            condition.feedback_mode,
+            condition.defense_mode,
+            condition.repetition,
+        )
+        for condition in conditions
+    } == {
+        (state, delay, True, FeedbackMode.REASON_BEARING, DefenseMode.NONE, repetition)
+        for state in HiddenState
+        for delay in (0, 2)
+        for repetition in (0, 1)
+    }
     assert all(condition.benign_control for condition in conditions)
     assert {condition.hidden_state for condition in conditions} == set(HiddenState)
     assert {condition.delay for condition in conditions} == {0, 2}

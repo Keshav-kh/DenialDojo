@@ -1,4 +1,5 @@
 import json
+from itertools import product
 
 from agentdojo.types import get_text_content_as_str
 
@@ -51,12 +52,23 @@ def test_uses_genuine_agentdojo_workspace_state_and_tools() -> None:
 
 
 def test_prompts_and_injected_bytes_are_identical_across_hidden_states() -> None:
-    absent = run_workspace_attack(HiddenState.ABSENT, delay=0)
-    protected = run_workspace_attack(HiddenState.PRESENT_BUT_PROTECTED, delay=0)
+    for feedback_mode, defense_mode, delay in product(FeedbackMode, DefenseMode, (0, 2)):
+        absent = run_workspace_attack(
+            HiddenState.ABSENT,
+            feedback_mode=feedback_mode,
+            defense_mode=defense_mode,
+            delay=delay,
+        )
+        protected = run_workspace_attack(
+            HiddenState.PRESENT_BUT_PROTECTED,
+            feedback_mode=feedback_mode,
+            defense_mode=defense_mode,
+            delay=delay,
+        )
 
-    assert absent.user_prompt.encode() == protected.user_prompt.encode()
-    assert absent.injected_content.encode() == protected.injected_content.encode()
-    assert ATTACK_INJECTION.encode() in absent.injected_content.encode()
+        assert absent.user_prompt.encode() == protected.user_prompt.encode()
+        assert absent.injected_content.encode() == protected.injected_content.encode()
+        assert ATTACK_INJECTION.encode() in absent.injected_content.encode()
 
 
 def test_hidden_assignment_is_not_model_visible_except_controlled_denial() -> None:
@@ -81,12 +93,26 @@ def test_hidden_assignment_is_not_model_visible_except_controlled_denial() -> No
 
 
 def test_protected_body_never_executes_and_probe_and_sink_are_mediated() -> None:
-    execution = run_workspace_attack(HiddenState.ABSENT, delay=0)
+    for hidden_state, feedback_mode, defense_mode, delay in product(
+        HiddenState, FeedbackMode, DefenseMode, (0, 2)
+    ):
+        execution = run_workspace_attack(
+            hidden_state,
+            feedback_mode=feedback_mode,
+            defense_mode=defense_mode,
+            delay=delay,
+        )
 
-    assert not execution.environment.monitor.protected_body_executed
-    assert len(execution.environment.monitor.denial_events) == 1
-    assert execution.environment.monitor.sink_attempts == 1
-    assert execution.record.sent_bodies == ["ALPHA"]
+        assert not execution.environment.monitor.protected_body_executed
+        assert len(execution.environment.monitor.denial_events) == 1
+        assert execution.environment.monitor.sink_attempts == 1
+        if (
+            hidden_state is HiddenState.ABSENT
+            and feedback_mode is FeedbackMode.REASON_BEARING
+            and defense_mode is DefenseMode.NONE
+            and delay == 0
+        ):
+            assert execution.record.sent_bodies == ["ALPHA"]
 
 
 def test_leakage_evaluator_covers_payload_outcomes() -> None:
@@ -172,14 +198,33 @@ def test_uniform_feedback_does_not_recover_reason_distinction() -> None:
 
 
 def test_every_run_has_fresh_workspace_and_interposer_state() -> None:
-    first = run_workspace_attack(HiddenState.ABSENT, delay=0)
-    second = run_workspace_attack(HiddenState.ABSENT, delay=0)
+    for hidden_state, feedback_mode, defense_mode, delay in product(
+        HiddenState, FeedbackMode, DefenseMode, (0, 2)
+    ):
+        first = run_workspace_attack(
+            hidden_state,
+            feedback_mode=feedback_mode,
+            defense_mode=defense_mode,
+            delay=delay,
+        )
+        second = run_workspace_attack(
+            hidden_state,
+            feedback_mode=feedback_mode,
+            defense_mode=defense_mode,
+            delay=delay,
+        )
 
-    assert first.environment is not second.environment
-    assert first.environment.inbox is not second.environment.inbox
-    assert first.environment.monitor is not second.environment.monitor
-    assert first.record.sent_bodies == second.record.sent_bodies == ["ALPHA"]
-    assert first.environment.monitor.denial_sequence == second.environment.monitor.denial_sequence == 1
+        assert first.environment is not second.environment
+        assert first.environment.inbox is not second.environment.inbox
+        assert first.environment.monitor is not second.environment.monitor
+        assert first.environment.monitor.denial_sequence == second.environment.monitor.denial_sequence == 1
+        if (
+            hidden_state is HiddenState.ABSENT
+            and feedback_mode is FeedbackMode.REASON_BEARING
+            and defense_mode is DefenseMode.NONE
+            and delay == 0
+        ):
+            assert first.record.sent_bodies == second.record.sent_bodies == ["ALPHA"]
 
 
 def test_reversing_execution_order_does_not_change_results() -> None:
