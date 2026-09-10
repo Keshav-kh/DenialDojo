@@ -7,6 +7,9 @@ import pytest
 from denialdojo import run_api_pilot
 from denialdojo.api_adapter import ApiConfig
 from denialdojo.local_pilot import PreflightResult
+from denialdojo.scenarios.workspace_recipe_document_file_probe import (
+    WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE,
+)
 from denialdojo.trace import TerminalStatus
 
 
@@ -121,6 +124,55 @@ def test_api_pilot_output_directories_are_stable_and_model_scoped() -> None:
     assert readiness == Path("runs") / "pilot" / "checkpoint1g-gpt-5.6-luna-readiness"
 
 
+def test_api_pilot_writes_distinct_preflight_artifacts_for_each_scenario(monkeypatch, tmp_path: Path) -> None:
+    failed = PreflightResult(
+        repetition=0,
+        valid=False,
+        terminal_status=TerminalStatus.MALFORMED_TOOL_CALL,
+        tool_names=[],
+        steps=1,
+        elapsed_seconds=0.1,
+        error="fixture failure",
+    )
+
+    def fake_preflight(*args, **kwargs) -> PreflightResult:
+        return failed.model_copy(update={"repetition": kwargs["repetition"]})
+
+    monkeypatch.setattr(run_api_pilot, "run_preflight_once", fake_preflight)
+    config = ApiConfig(model="test-model")
+
+    with pytest.raises(SystemExit, match="sequential tool-call gate"):
+        run_api_pilot.run_api_pilot(config, output_root=tmp_path)
+    with pytest.raises(SystemExit, match="sequential tool-call gate"):
+        run_api_pilot.run_api_pilot(
+            config,
+            output_root=tmp_path,
+            scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
+        )
+
+    default_preflight = tmp_path / "checkpoint1g-test-model-preflight"
+    recipe_preflight = (
+        tmp_path / "checkpoint1g-test-model-workspace_recipe_document_file_probe-preflight"
+    )
+    default_directories = run_api_pilot.output_directories(tmp_path, config.model)
+    recipe_directories = run_api_pilot.output_directories(
+        tmp_path,
+        config.model,
+        scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
+    )
+    assert (default_preflight / "manifest.json").is_file()
+    assert (recipe_preflight / "manifest.json").is_file()
+    assert default_directories == (
+        default_preflight,
+        tmp_path / "checkpoint1g-test-model-readiness",
+    )
+    assert recipe_directories == (
+        recipe_preflight,
+        tmp_path / "checkpoint1g-test-model-workspace_recipe_document_file_probe-readiness",
+    )
+    assert set(default_directories).isdisjoint(recipe_directories)
+
+
 def test_api_pilot_cli_forwards_the_selected_scenario(monkeypatch) -> None:
     captured: dict = {}
     monkeypatch.setattr(
@@ -158,6 +210,8 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
     first_raw = json.loads((raw_directory / "api-readiness-001.json").read_text(encoding="utf-8"))
     assert result["preflight"]["summary"]["sequential_tool_call_gate_passed"] is True
     assert result["preflight"]["runtime"]["reasoning_effort"] == "none"
+    assert readiness["schema_version"] == "denialdojo-readiness-summary-v3"
+    assert readiness["scenario_id"] == "workspace_document_file_probe"
     assert readiness["records"] == 8
     assert readiness["benign_readiness_gate_passed"] is True
     assert len(list(raw_directory.glob("*.json"))) == 8

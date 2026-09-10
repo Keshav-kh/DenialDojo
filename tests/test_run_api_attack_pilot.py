@@ -18,6 +18,10 @@ from denialdojo.run_api_attack_pilot import (
     run_attack_pilot,
     summarize,
 )
+from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE
+from denialdojo.scenarios.workspace_recipe_document_file_probe import (
+    WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE,
+)
 from denialdojo.trace import TerminalStatus
 from denialdojo.trace_v2 import (
     DerivedRunRecord,
@@ -122,14 +126,20 @@ class AttackScriptedTransport:
         }
 
 
-def _passing_readiness(tmp_path: Path, config: ApiConfig) -> Path:
+def _passing_readiness(
+    tmp_path: Path,
+    config: ApiConfig,
+    *,
+    scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
+) -> Path:
     directory = tmp_path / "readiness"
     directory.mkdir()
     (directory / "summary.json").write_text(
         json.dumps(
             {
-                "schema_version": "denialdojo-readiness-summary-v2",
+                "schema_version": "denialdojo-readiness-summary-v3",
                 "provenance": "derived_aggregate",
+                "scenario_id": scenario_id,
                 "records": 8,
                 "terminal_status_counts": {"complete": 8},
                 "protocol_status_counts": {"conformant": 8},
@@ -155,6 +165,7 @@ def _passing_readiness(tmp_path: Path, config: ApiConfig) -> Path:
         selected_model_capabilities=["chat_completions", "function_tools"],
         pilot_scope={
             "kind": "checkpoint1g_benign_readiness_gate",
+            "scenario_id": scenario_id,
             "benign_controls_only": True,
             "expected_run_ids": [],
         },
@@ -537,6 +548,7 @@ def test_attack_pilot_output_directories_are_model_scoped() -> None:
     [
         {"benign_readiness_gate_passed": False},
         {"records": 4},
+        {"schema_version": "denialdojo-readiness-summary-v2"},
         {"schema_version": "denialdojo-readiness-summary-v1"},
     ],
 )
@@ -563,6 +575,33 @@ def test_attack_pilot_refuses_to_start_on_failing_readiness_summary(
             readiness_summary=readiness,
             output_root=tmp_path / "out",
             transport=AttackScriptedTransport(),
+        )
+
+    assert started["matrix"] is False
+    assert not (tmp_path / "out").exists()
+
+
+def test_attack_pilot_refuses_readiness_summary_for_a_different_scenario(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
+    config = ApiConfig(model="test-model")
+    readiness = _passing_readiness(tmp_path, config)
+    started = {"matrix": False}
+    monkeypatch.setattr(
+        run_api_attack_pilot,
+        "execute_immutable_matrix",
+        lambda *args, **kwargs: started.__setitem__("matrix", True) or [],
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match=r"workspace_document_file_probe.*workspace_recipe_document_file_probe",
+    ):
+        run_attack_pilot(
+            config,
+            readiness_summary=readiness,
+            output_root=tmp_path / "out",
+            transport=AttackScriptedTransport(),
+            scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
         )
 
     assert started["matrix"] is False

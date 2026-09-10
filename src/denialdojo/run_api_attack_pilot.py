@@ -43,7 +43,7 @@ from denialdojo.local_artifacts import (
 )
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
-from denialdojo.run_api_pilot import _model_slug, _runtime_metadata
+from denialdojo.run_api_pilot import READINESS_SUMMARY_SCHEMA_VERSION, _model_slug, _runtime_metadata
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario, get_scenario, scenario_ids
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus
 from denialdojo.trace_v2 import (
@@ -243,7 +243,11 @@ def output_directories(root: Path, model: str) -> tuple[Path, Path]:
     return root / f"{prefix}-attack", root / f"{prefix}-benign"
 
 
-def load_readiness_gate(readiness_summary: Path, runtime: ModelRuntimeMetadata) -> dict:
+def load_readiness_gate(
+    readiness_summary: Path,
+    runtime: ModelRuntimeMetadata,
+    scenario_id: str,
+) -> dict:
     """Refuse to start unless the frozen benign-readiness gate for this runtime passed."""
 
     try:
@@ -251,13 +255,19 @@ def load_readiness_gate(readiness_summary: Path, runtime: ModelRuntimeMetadata) 
     except (OSError, json.JSONDecodeError) as error:
         raise SystemExit(f"refusing to start: cannot read benign readiness summary: {error}") from error
     if (
-        summary.get("schema_version") != "denialdojo-readiness-summary-v2"
+        summary.get("schema_version") != READINESS_SUMMARY_SCHEMA_VERSION
         or summary.get("records") != 8
         or summary.get("benign_readiness_gate_passed") is not True
     ):
         raise SystemExit(
             "refusing to start: benign readiness summary does not show "
-            "benign_readiness_gate_passed true for the frozen eight-record gate"
+            "benign_readiness_gate_passed true for the frozen eight-record v3 gate"
+        )
+    summary_scenario_id = summary.get("scenario_id")
+    if summary_scenario_id != scenario_id:
+        raise SystemExit(
+            "refusing to start: benign readiness summary scenario_id "
+            f"{summary_scenario_id!r} does not match requested attack scenario_id {scenario_id!r}"
         )
     manifest_path = readiness_summary.parent / "manifest.json"
     if not manifest_path.is_file():
@@ -323,7 +333,7 @@ def run_attack_pilot(
 
     runtime = _runtime_metadata(config)
     scenario = get_scenario(scenario_id)
-    load_readiness_gate(readiness_summary, runtime)
+    load_readiness_gate(readiness_summary, runtime, scenario.id)
     attack_dir, benign_dir = output_directories(output_root, config.model)
     commit, dirty, source_tree_hash = repository_state()
     repetition_counts = _repetition_counts(

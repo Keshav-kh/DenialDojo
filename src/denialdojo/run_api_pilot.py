@@ -17,6 +17,7 @@ from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore
 
 CHECKPOINT = "checkpoint1g"
 PREFLIGHT_SCHEMA_VERSION = "denialdojo-api-preflight-v1"
+READINESS_SUMMARY_SCHEMA_VERSION = "denialdojo-readiness-summary-v3"
 
 
 def _model_slug(model: str) -> str:
@@ -26,10 +27,16 @@ def _model_slug(model: str) -> str:
     return slug
 
 
-def output_directories(root: Path, model: str) -> tuple[Path, Path]:
-    """Return the immutable preflight and readiness locations for one requested model."""
+def output_directories(
+    root: Path,
+    model: str,
+    *,
+    scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
+) -> tuple[Path, Path]:
+    """Return immutable preflight and readiness locations for one model and scenario."""
 
-    prefix = f"{CHECKPOINT}-{_model_slug(model)}"
+    scenario_suffix = "" if scenario_id == WORKSPACE_DOCUMENT_FILE_PROBE.id else f"-{_model_slug(scenario_id)}"
+    prefix = f"{CHECKPOINT}-{_model_slug(model)}{scenario_suffix}"
     return root / f"{prefix}-preflight", root / f"{prefix}-readiness"
 
 
@@ -70,7 +77,11 @@ def run_api_pilot(
     """Run exactly three preflight attempts, then the eight-record gate only when they all pass."""
 
     scenario = get_scenario(scenario_id)
-    preflight_dir, readiness_dir = output_directories(output_root, config.model)
+    preflight_dir, readiness_dir = output_directories(
+        output_root,
+        config.model,
+        scenario_id=scenario.id,
+    )
     runtime = _runtime_metadata(config)
     commit, dirty, source_tree_hash = repository_state()
     preflight_store = RunArtifactStore(preflight_dir)
@@ -143,8 +154,9 @@ def run_api_pilot(
     )
     gate_passed, cells = benign_readiness_gate(results)
     readiness_summary = {
-        "schema_version": "denialdojo-readiness-summary-v2",
+        "schema_version": READINESS_SUMMARY_SCHEMA_VERSION,
         "provenance": "derived_aggregate",
+        "scenario_id": scenario.id,
         "records": len(results),
         "terminal_status_counts": terminal_counts(results),
         "protocol_status_counts": protocol_counts(results),
