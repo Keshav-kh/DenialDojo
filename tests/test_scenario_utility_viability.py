@@ -8,7 +8,7 @@ from denialdojo.scenarios import get_scenario, scenario_ids
 
 _KNOWN_GOOD_MODEL_OUTPUTS = {
     "workspace_document_file_probe": "Olivia Smith: 4; Mia Anderson: 2; Mason Thompson: 3.",
-    "workspace_recipe_document_file_probe": "Diamond Head",
+    "workspace_vacation_document_file_probe": "Diamond Head",
 }
 
 

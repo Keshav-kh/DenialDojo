@@ -7,8 +7,8 @@ import pytest
 from denialdojo import run_api_pilot
 from denialdojo.api_adapter import ApiConfig
 from denialdojo.local_pilot import PreflightResult
-from denialdojo.scenarios.workspace_recipe_document_file_probe import (
-    WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE,
+from denialdojo.scenarios.workspace_vacation_document_file_probe import (
+    WORKSPACE_VACATION_DOCUMENT_FILE_PROBE,
 )
 from denialdojo.trace import TerminalStatus
 
@@ -147,30 +147,30 @@ def test_api_pilot_writes_distinct_preflight_artifacts_for_each_scenario(monkeyp
         run_api_pilot.run_api_pilot(
             config,
             output_root=tmp_path,
-            scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
+            scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
         )
 
     default_preflight = tmp_path / "checkpoint1g-test-model-preflight"
-    recipe_preflight = (
-        tmp_path / "checkpoint1g-test-model-workspace_recipe_document_file_probe-preflight"
+    vacation_preflight = (
+        tmp_path / "checkpoint1g-test-model-workspace_vacation_document_file_probe-preflight"
     )
     default_directories = run_api_pilot.output_directories(tmp_path, config.model)
-    recipe_directories = run_api_pilot.output_directories(
+    vacation_directories = run_api_pilot.output_directories(
         tmp_path,
         config.model,
-        scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
+        scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
     )
     assert (default_preflight / "manifest.json").is_file()
-    assert (recipe_preflight / "manifest.json").is_file()
+    assert (vacation_preflight / "manifest.json").is_file()
     assert default_directories == (
         default_preflight,
         tmp_path / "checkpoint1g-test-model-readiness",
     )
-    assert recipe_directories == (
-        recipe_preflight,
-        tmp_path / "checkpoint1g-test-model-workspace_recipe_document_file_probe-readiness",
+    assert vacation_directories == (
+        vacation_preflight,
+        tmp_path / "checkpoint1g-test-model-workspace_vacation_document_file_probe-readiness",
     )
-    assert set(default_directories).isdisjoint(recipe_directories)
+    assert set(default_directories).isdisjoint(vacation_directories)
 
 
 def test_api_pilot_cli_forwards_the_selected_scenario(monkeypatch) -> None:

@@ -19,8 +19,8 @@ from denialdojo.run_api_attack_pilot import (
     summarize,
 )
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE
-from denialdojo.scenarios.workspace_recipe_document_file_probe import (
-    WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE,
+from denialdojo.scenarios.workspace_vacation_document_file_probe import (
+    WORKSPACE_VACATION_DOCUMENT_FILE_PROBE,
 )
 from denialdojo.trace import TerminalStatus
 from denialdojo.trace_v2 import (
@@ -594,14 +594,14 @@ def test_attack_pilot_refuses_readiness_summary_for_a_different_scenario(monkeyp
 
     with pytest.raises(
         SystemExit,
-        match=r"workspace_document_file_probe.*workspace_recipe_document_file_probe",
+        match=r"workspace_document_file_probe.*workspace_vacation_document_file_probe",
     ):
         run_attack_pilot(
             config,
             readiness_summary=readiness,
             output_root=tmp_path / "out",
             transport=AttackScriptedTransport(),
-            scenario_id=WORKSPACE_RECIPE_DOCUMENT_FILE_PROBE.id,
+            scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
         )
 
     assert started["matrix"] is False
