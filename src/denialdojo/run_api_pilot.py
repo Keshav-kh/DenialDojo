@@ -11,6 +11,7 @@ from denialdojo.api_adapter import ApiAdapter, ApiConfig, Transport
 from denialdojo.local_artifacts import benign_readiness_gate, execute_immutable_matrix, protocol_counts, terminal_counts
 from denialdojo.local_pilot import PreflightResult, readiness_conditions, run_preflight_once, summarize_preflight
 from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
+from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, get_scenario, scenario_ids
 from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore
 
@@ -64,9 +65,11 @@ def run_api_pilot(
     *,
     output_root: Path = Path("runs") / "pilot",
     transport: Transport | None = None,
+    scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
 ) -> dict:
     """Run exactly three preflight attempts, then the eight-record gate only when they all pass."""
 
+    scenario = get_scenario(scenario_id)
     preflight_dir, readiness_dir = output_directories(output_root, config.model)
     runtime = _runtime_metadata(config)
     commit, dirty, source_tree_hash = repository_state()
@@ -110,7 +113,7 @@ def run_api_pilot(
             selected_model_capabilities=["chat_completions", "function_tools"],
             pilot_scope={
                 "kind": "checkpoint1g_benign_readiness_gate",
-                "scenario_id": "workspace_document_file_probe",
+                "scenario_id": scenario.id,
                 "expected_run_ids": [condition.run_id for condition in conditions],
                 "conditions": 8,
                 "feedback_mode": "reason_bearing",
@@ -136,6 +139,7 @@ def run_api_pilot(
         source_tree_hash=source_tree_hash,
         transport=transport,
         adapter_factory=ApiAdapter,
+        scenario=scenario,
     )
     gate_passed, cells = benign_readiness_gate(results)
     readiness_summary = {
@@ -158,13 +162,15 @@ def main() -> None:
     parser.add_argument("--model", default="gpt-5.6-luna")
     parser.add_argument("--base-url", default="https://api.openai.com/v1")
     parser.add_argument("--reasoning-effort", default="none")
+    parser.add_argument("--scenario", choices=scenario_ids(), default=WORKSPACE_DOCUMENT_FILE_PROBE.id)
     args = parser.parse_args()
     result = run_api_pilot(
         ApiConfig(
             model=args.model,
             base_url=args.base_url,
             reasoning_effort=args.reasoning_effort,
-        )
+        ),
+        scenario_id=args.scenario,
     )
     print(json.dumps(result["preflight"]["summary"], indent=2))
     print(json.dumps(result["readiness"], indent=2))

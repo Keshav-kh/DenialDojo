@@ -334,7 +334,7 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
         "run_attack_pilot",
         lambda config, **kwargs: captured.update(kwargs) or {"attack": {}, "benign": {}},
     )
-    monkeypatch.setattr(run_api_attack_pilot, "summarize", lambda *_: "summary")
+    monkeypatch.setattr(run_api_attack_pilot, "summarize", lambda *_, **__: "summary")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -353,6 +353,8 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
             "fixed_quarantine",
             "--quarantine-k",
             "7",
+            "--scenario",
+            "workspace_document_file_probe",
         ],
     )
 
@@ -363,6 +365,7 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
     assert captured["positive_control_repetitions"] == 6
     assert captured["defense_mode"] == DefenseMode.FIXED_QUARANTINE
     assert captured["quarantine_k"] == 7
+    assert captured["scenario_id"] == "workspace_document_file_probe"
 
 
 @pytest.mark.parametrize("defense_mode", ["none", "immediate_adjacency"])
@@ -628,6 +631,7 @@ def test_positive_control_is_recorded_and_uses_the_shared_workspace_bytes(small_
     )
 
     assert natural.trusted_run_metadata.probe_condition == "natural"
+    assert natural.trusted_run_metadata.scenario_id == "workspace_document_file_probe"
     assert "natural" in natural.trusted_run_metadata.paired_run_group_id
     assert natural.trusted_run_metadata.injection_variant == "v1"
     assert natural_v2.trusted_run_metadata.injection_variant == "v2"

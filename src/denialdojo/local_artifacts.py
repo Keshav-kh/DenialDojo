@@ -15,6 +15,7 @@ from denialdojo.local_pilot import (
     run_workspace_ollama_condition,
 )
 from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
+from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario
 from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import (
     DerivedRunRecord,
@@ -48,6 +49,7 @@ def execute_immutable_matrix(
     source_tree_hash: str | None,
     transport: AdapterTransport | None = None,
     adapter_factory: AdapterFactory = OllamaAdapter,
+    scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
 ) -> list[StoredRun]:
     """Execute each condition once and immediately freeze raw then derived evidence."""
 
@@ -63,6 +65,7 @@ def execute_immutable_matrix(
             source_tree_hash=source_tree_hash,
             transport=transport,
             adapter_factory=adapter_factory,
+            scenario=scenario,
         )
         stored_raw = store.write_raw(execution.raw)
         derived = derive_run(execution.raw, stored_raw.sha256)

@@ -22,6 +22,7 @@ from denialdojo.trace_v2 import (
     TrustedRunMetadata,
     derive_run,
     replay_run_artifacts,
+    sha256_bytes,
 )
 
 
@@ -140,6 +141,30 @@ def _conformant_raw(delay: int = 0, *, benign: bool = False) -> RawRunRecord:
         sink=[SinkStateRecord(recipients=[recipient], subject=subject, body=body)],
         benign=benign,
     )
+
+
+def test_checkpoint4a_fixture_sample_replays_to_the_identical_derived_record() -> None:
+    fixture_root = (
+        Path(__file__).parent.parent
+        / "runs"
+        / "pilot"
+        / "checkpoint4a-gpt-5.6-luna-attack"
+    )
+    raw_bytes = (fixture_root / "raw" / "api-attack-001.json").read_bytes()
+    raw = RawRunRecord.model_validate_json(raw_bytes)
+    expected_bytes = (fixture_root / "derived" / "api-attack-001.json").read_bytes()
+    actual = derive_run(raw, sha256_bytes(raw_bytes))
+    actual_bytes = (json.dumps(actual.model_dump(mode="json"), indent=2, sort_keys=True) + "\n").encode()
+
+    assert actual_bytes == expected_bytes
+
+
+def test_trusted_metadata_rejects_an_unregistered_scenario_id() -> None:
+    metadata = _raw().trusted_run_metadata.model_dump(mode="json")
+    metadata["scenario_id"] = "unknown_scenario"
+
+    with pytest.raises(ValueError, match="unknown scenario"):
+        TrustedRunMetadata.model_validate(metadata)
 
 
 def test_derived_utility_normalized_accepts_formatting_artifacts_without_changing_strict_utility() -> None:

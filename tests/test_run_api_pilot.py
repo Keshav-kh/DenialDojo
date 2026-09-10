@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -120,6 +121,28 @@ def test_api_pilot_output_directories_are_stable_and_model_scoped() -> None:
     assert readiness == Path("runs") / "pilot" / "checkpoint1g-gpt-5.6-luna-readiness"
 
 
+def test_api_pilot_cli_forwards_the_selected_scenario(monkeypatch) -> None:
+    captured: dict = {}
+    monkeypatch.setattr(
+        run_api_pilot,
+        "run_api_pilot",
+        lambda config, **kwargs: captured.update(kwargs) or {"preflight": {"summary": {}}, "readiness": {}},
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_api_pilot",
+            "--scenario",
+            "workspace_document_file_probe",
+        ],
+    )
+
+    run_api_pilot.main()
+
+    assert captured["scenario_id"] == "workspace_document_file_probe"
+
+
 def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
     transport = ScriptedApiTransport()
@@ -145,5 +168,6 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
         "total_tokens": 12,
     }
     assert first_raw["trusted_run_metadata"]["runtime"]["reasoning_effort"] == "none"
+    assert first_raw["trusted_run_metadata"]["scenario_id"] == "workspace_document_file_probe"
     assert "Authorization" not in json.dumps(first_raw)
     assert "sk-test-only-secret" not in json.dumps(first_raw)
