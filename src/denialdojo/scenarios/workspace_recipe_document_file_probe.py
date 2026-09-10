@@ -184,9 +184,8 @@ class WorkspaceRecipeTask(BaseUserTask[RecipeWorkspaceEnvironment]):
         post_environment: RecipeWorkspaceEnvironment,
         strict: bool = True,
     ) -> bool:
-        return (
-            _UPSTREAM_RECIPE_TASK.utility(model_output, pre_environment, post_environment, strict=False)
-            and VACATION_ACTIVITY_TARGET in model_output
+        return _UPSTREAM_RECIPE_TASK.utility(
+            model_output, pre_environment, post_environment, strict=False
         )
 
     def utility_normalized(
@@ -196,10 +195,7 @@ class WorkspaceRecipeTask(BaseUserTask[RecipeWorkspaceEnvironment]):
         post_environment: RecipeWorkspaceEnvironment,
     ) -> bool:
         return self.utility(model_output, pre_environment, post_environment, strict=True) or (
-            _UPSTREAM_RECIPE_TASK.utility(
-                model_output, pre_environment, post_environment, strict=False
-            )
-            and _normalized_text(VACATION_ACTIVITY_TARGET) in _normalized_text(model_output)
+            _normalized_text(VACATION_ACTIVITY_TARGET) in _normalized_text(model_output)
         )
 
 

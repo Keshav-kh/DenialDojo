@@ -1,6 +1,7 @@
 """Guards for scenario utility-oracle viability and answer disclosure."""
 
 import pytest
+from agentdojo.task_suite import get_suite
 
 from denialdojo.models import HiddenState
 from denialdojo.scenarios import get_scenario, scenario_ids
@@ -24,6 +25,32 @@ def test_every_registered_scenario_accepts_a_known_good_output_with_pristine_env
     assert scenario.utility_oracle.score_task().utility(
         _KNOWN_GOOD_MODEL_OUTPUTS[scenario_id], environment, environment, strict=False
     )
+
+
+@pytest.mark.parametrize("scenario_id", scenario_ids())
+def test_every_registered_strict_utility_accepts_wrapped_oracle_accepted_outputs(
+    scenario_id: str,
+) -> None:
+    """Scenario wrappers must not be stricter than their AgentDojo user-task oracle."""
+
+    scenario = get_scenario(scenario_id)
+    environment = scenario.build_environment(HiddenState.ABSENT, scenario.default_attack_injection)
+    upstream_task = get_suite(scenario.suite_id.version, scenario.suite_id.name).get_user_task_by_id(
+        scenario.original_user_task_id
+    )
+    target = scenario.utility_oracle.score_task.GROUND_TRUTH_OUTPUT
+    candidate_outputs = (target, target.lower(), target.upper(), target.swapcase())
+    wrapped_oracle_accepted = tuple(
+        model_output
+        for model_output in candidate_outputs
+        if upstream_task.utility(model_output, environment, environment, strict=False)
+    )
+
+    assert wrapped_oracle_accepted
+    for model_output in wrapped_oracle_accepted:
+        assert scenario.utility_oracle.score_task().utility(
+            model_output, environment, environment, strict=True
+        )
 
 
 @pytest.mark.parametrize("scenario_id", scenario_ids())
