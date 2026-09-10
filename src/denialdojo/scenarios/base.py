@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from denialdojo.models import DenialReason, HiddenState
+
+
+def _normalized_text(value: str) -> str:
+    """Normalize formatting artifacts for the preregistered utility relaxation."""
+
+    normalized = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", value)).strip()
+    while normalized and unicodedata.category(normalized[-1]).startswith("P"):
+        normalized = normalized[:-1]
+    return normalized.rstrip()
 
 
 @dataclass(frozen=True)
