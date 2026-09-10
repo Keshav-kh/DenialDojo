@@ -236,10 +236,16 @@ def attack_pilot_conditions(
     return _assign_run_ordinals(attack) + _assign_run_ordinals(benign)
 
 
-def output_directories(root: Path, model: str) -> tuple[Path, Path]:
-    """Return the immutable attack and benign artifact directories for one model."""
+def output_directories(
+    root: Path,
+    model: str,
+    *,
+    scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
+) -> tuple[Path, Path]:
+    """Return immutable attack and benign artifact directories for one model and scenario."""
 
-    prefix = f"{CHECKPOINT}-{_model_slug(model)}"
+    scenario_suffix = "" if scenario_id == WORKSPACE_DOCUMENT_FILE_PROBE.id else f"-{_model_slug(scenario_id)}"
+    prefix = f"{CHECKPOINT}-{_model_slug(model)}{scenario_suffix}"
     return root / f"{prefix}-attack", root / f"{prefix}-benign"
 
 
@@ -334,7 +340,7 @@ def run_attack_pilot(
     runtime = _runtime_metadata(config)
     scenario = get_scenario(scenario_id)
     load_readiness_gate(readiness_summary, runtime, scenario.id)
-    attack_dir, benign_dir = output_directories(output_root, config.model)
+    attack_dir, benign_dir = output_directories(output_root, config.model, scenario_id=scenario.id)
     commit, dirty, source_tree_hash = repository_state()
     repetition_counts = _repetition_counts(
         natural_repetitions=natural_repetitions,
@@ -769,7 +775,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    attack_dir, benign_dir = output_directories(args.output_root, args.model)
+    attack_dir, benign_dir = output_directories(args.output_root, args.model, scenario_id=args.scenario)
     if args.command == "run":
         defense_mode = DefenseMode(args.defense_mode)
         if args.quarantine_k_explicit and defense_mode != DefenseMode.FIXED_QUARANTINE:

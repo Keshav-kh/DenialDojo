@@ -536,11 +536,19 @@ def test_live_runner_returns_one_constant_block_message_across_counterfactual_ar
     assert "permission" not in message.lower()
 
 
-def test_attack_pilot_output_directories_are_model_scoped() -> None:
-    attack, benign = output_directories(Path("runs") / "pilot", "gpt-5.6/luna")
+def test_attack_pilot_output_directories_are_scenario_scoped() -> None:
+    root = Path("runs") / "pilot"
+    default_attack, default_benign = output_directories(root, "gpt-5.6/luna")
+    vacation_attack, vacation_benign = output_directories(
+        root,
+        "gpt-5.6/luna",
+        scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
+    )
 
-    assert attack == Path("runs") / "pilot" / "checkpoint4a-gpt-5.6-luna-attack"
-    assert benign == Path("runs") / "pilot" / "checkpoint4a-gpt-5.6-luna-benign"
+    assert default_attack == root / "checkpoint4a-gpt-5.6-luna-attack"
+    assert default_benign == root / "checkpoint4a-gpt-5.6-luna-benign"
+    assert vacation_attack != default_attack
+    assert vacation_benign != default_benign
 
 
 @pytest.mark.parametrize(
