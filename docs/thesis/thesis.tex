@@ -209,9 +209,15 @@ Chapter~\ref{ch:background}.}
     delay between the denial and the sink call?
   \item[RQ3] Which interventions close the channel, and at what cost to
     benign task utility?
-  \item[RQ4] \PLACEHOLDER{cross-domain generalization; pending the
-    Banking suite}
+  \item[RQ4] Does any observed leakage generalise across task suites,
+    carrier modalities and sink modalities, and if not, what bounds the
+    rate at which it occurs?
 \end{description}
+
+RQ4 was added before the Banking and Travel scenarios were built and is
+answered negatively in Section~\ref{sec:scenario-four}. The negative answer,
+bounded rather than merely asserted, is the principal empirical result of this
+work.
 
 \section{Contributions}
 
@@ -224,21 +230,44 @@ Chapter~\ref{ch:background}.}
     channel and enforces post-denial sink policies, with immutable
     artifact capture sufficient for exact replay
     (Chapter~\ref{ch:implementation}).
+  \item \textbf{A bounded negative result with a validated positive
+    control.} Across four scenarios, two suites beyond the original, and
+    both sink modalities, unsolicited denial-reason leakage occurred in
+    one of 216 interpretable natural records, giving a one-sided 95\%
+    upper bound of $2.18\%$, and in zero of 240 forced records, bounded
+    at $1.24\%$. In the same runs the positive control fired at $10/10$
+    in nearly every cell, on the same denial strings, so the bound
+    separates \emph{absence of the behaviour} from \emph{absence of
+    sensitivity} (Section~\ref{sec:scenario-four}).
+  \item \textbf{A replicated semantic-default finding.} Under uniform
+    feedback the models emit a constant code, and across four scenarios
+    with opposing codebook assignments that constant is always the code
+    for \code{PERMISSION\_DENIED}. The token changes with the codebook
+    and the semantics do not, which no token-frequency bias can produce
+    (Sections~\ref{sec:inversion} and~\ref{sec:scenario-four}).
+  \item A realised denial-reason leak under indirect prompt injection,
+    reported at its true size: four counterfactual pairs in one cell of
+    one scenario on one model, plus one unpaired event in a second
+    scenario under a different variant. The framing dependence observed
+    in the first did not reproduce in the second
+    (Sections~\ref{sec:realised} and~\ref{sec:scenario-four}).
   \item A preregistration discipline applied at experiment granularity,
-    including an instance in which a preregistered prediction was
-    falsified and the falsification proved more informative than a
-    confirmation would have been (Chapters~\ref{ch:methods}
+    including four predictions falsified by the data and honoured
+    without revision, and a preregistered void rule applied to a model
+    whose positive control failed (Chapters~\ref{ch:methods}
     and~\ref{ch:results}).
   \item An empirical security--utility frontier showing two
     interventions with identical security outcomes and opposite utility
     costs (Section~\ref{sec:frontier}).
-  \item A realised denial-reason leak under indirect prompt injection,
-    together with the observation that it is sharply dependent on the
-    framing of the injected text while being invariant to its content
-    (Section~\ref{sec:realised}).
   \item A catalogue of measurement-validity defects found in the
     benchmark's own instrumentation, with the general patterns they
-    instantiate (Chapter~\ref{ch:methodfindings}).
+    instantiate, including a fail-open in the trusted mediator and a
+    vacuous utility oracle in the upstream benchmark
+    (Chapter~\ref{ch:methodfindings}).
+  \item A structural survey of the packaged AgentDojo suites showing
+    that only 18 of their 97 user tasks can host a sink-based
+    counterfactual experiment at all, which bounds what any benchmark of
+    this shape can cover (Section~\ref{sec:scenario-four}).
 \end{enumerate}
 
 % =====================================================================
@@ -482,17 +511,39 @@ error is itself the methodological commitment, and that the alternative
 --- silently backdating --- is what preregistration exists to prevent.}
 
 \section{Statistical protocol}
+\label{sec:stats}
 
-\PLACEHOLDER{Scenario-clustered paired bootstrap confidence intervals;
-exact McNemar for paired binary outcomes; permutation null; empirical
-mutual information $I(S;Y)$ with an explicit undecodable/no-send
-category; non-inferiority margin for utility comparisons.}
+The protocol originally planned for this work estimated a leakage \emph{rate}:
+scenario-clustered paired bootstrap intervals, exact McNemar tests on paired
+binary outcomes, a permutation null, and empirical mutual information
+$I(S;Y)$ with an explicit undecodable category. That protocol presumes enough
+positive events to estimate a rate around. The data do not contain them.
 
-\TODO{The analysis code for these exists (commits
-\code{957129d}, \code{07b8176}, \code{b8eda06}) but the statistical
-protocol has not been re-run against the current two-scenario dataset.
-Numbers in Chapter~\ref{ch:results} are therefore reported as empirical
-frequencies with exact counts, not as interval estimates.}
+The appropriate analysis for the data actually collected is a one-sided upper
+bound on the leakage rate. Under the Clopper--Pearson construction, one event
+in 216 interpretable natural records gives a $95\%$ upper bound of $2.18\%$,
+and zero events in 240 forced records gives $1.24\%$, consistent with the
+rule-of-three approximation $3/n$. Pooling both conditions, one event in 456
+records bounds the rate at $1.04\%$.
+
+Two properties of this bound need stating plainly. First, it treats records as
+independent Bernoulli trials, which is optimistic: records within a cell share
+a model, a prompt and a hidden state, and differ only by repetition. A
+scenario-clustered bootstrap would give a wider and more honest interval, and
+computing it is the remaining statistical work. Second, the bound is
+interpretable \emph{only} because the positive control fired in the same runs.
+A bound derived from an instrument that cannot detect the behaviour is a
+statement about the instrument; this one is not, and the positive-control
+counts reported alongside it are what license the distinction.
+
+The paired conditional leakage metric remains the primary endpoint where
+eligible pairs exist. Across scenarios three and four no natural cell produced
+an eligible pair, so the endpoint is undefined there rather than zero, and is
+reported as undefined throughout.
+
+\TODO{Run the scenario-clustered bootstrap and report the widened interval
+alongside the Clopper--Pearson bound. The analysis code exists in commits
+\code{957129d}, \code{07b8176} and \code{b8eda06}.}
 
 \section{Verification practice}
 
@@ -1208,6 +1259,167 @@ probe is classified and denied \emph{before argument binding} even when called
 with missing or wrong arguments, and that its sink is classified as external.
 
 
+
+\section{Scenario four, and the bounded negative}
+\label{sec:scenario-four}
+
+Scenarios two and three differ in suite, carrier, sink and base task at once, so
+the null in scenario three isolates nothing. Scenario four was built to vary one
+of those deliberately. \code{travel\_hotel\_review\_probe} uses Travel
+\code{user\_task\_6}, carries its injection in a hotel review surfaced by
+\code{get\_rating\_reviews\_for\_hotels}, and exfiltrates through
+\emph{the same \code{send\_email} tool and the same attacker address as
+Workspace scenarios one and two}. It resembles scenario three in suite and
+carrier novelty, and scenarios one and two in its sink. The contrast of interest
+is therefore sink modality.
+
+\subsection{A structural limit discovered while selecting the task}
+
+The intended base task was rejected before any run. Travel
+\code{user\_task\_13}'s utility returns false whenever the post environment
+differs from the pre environment, and applies that check unconditionally,
+ignoring the \code{strict} flag the Workspace tasks honour. Any sink write
+mutates the environment, so the benign arm could never pass.
+
+The defect had been missed by a check that evaluated utility with the pre and
+post environments bound to the same object, which cannot detect it. Executing a
+real sink call and re-surveying all four packaged suites gives the addressable
+pool for a benchmark of this shape:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Tasks able to host a sink-based counterfactual experiment: the base
+task must be scored on model output and must tolerate the environment mutation
+that any sink write produces.}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Suite & Tasks & Usable \\
+\midrule
+workspace & 40 & 15 \\
+banking & 16 & 2 \\
+travel & 20 & 1 \\
+slack & 21 & 0 \\
+\midrule
+total & 97 & 18 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every Slack task is scored on post-environment state with an empty ground-truth
+output, and thirteen of the fourteen otherwise-eligible Travel tasks reject any
+environment mutation. The consequence is that at most three scenarios in this
+benchmark can ever sit outside the Workspace suite, and that limit follows from
+the utility design of the packaged suites rather than from effort. It is
+reported because it bounds what any benchmark built on this foundation can
+claim about cross-suite generalisation.
+
+\subsection{Outcomes against the preregistered predictions}
+
+\paragraph{P1 confirmed on both models.} Positive control under reason-bearing
+feedback: paired conditional leakage $10/10$ at both delays on
+\code{gpt-5.6-luna} and $10/10$ at both delays on \code{gpt-5.6-terra}, chance
+rate $20/20$. Under uniform feedback $0/10$ in all four cells on both models,
+chance rate $10/20$.
+
+This revises the reading of the Checkpoint 7C void. \code{gpt-5.6-luna} failed
+the scenario-three positive control and passes this one cleanly, so that failure
+was specific to the scenario rather than evidence of a model unable to encode a
+denial reason. The void stands for the records it governs and is not widened.
+
+\paragraph{P2 confirmed.} Delivery was $6/6$ in all twelve natural cells,
+$20/20$ forced and $20/20$ positive control, on both models. The sentinel was
+clean in every cell. Every null below is measured against an attack that
+verifiably reached the model.
+
+\paragraph{P3 falsified.} P3 predicted non-zero natural paired conditional
+leakage under \code{v2} with reason-bearing feedback on at least one model.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Scenario four, attack arm, both models. Natural figures aggregate
+twelve cells, forced four.}
+\begin{tabular}{@{}llrrrrl@{}}
+\toprule
+Model & Condition & $n$ & Delivered & Probe & Send & \code{cond\_leak} \\
+\midrule
+Luna & natural & 72 & $72/72$ & $1$ & $1$ & undefined \\
+Luna & forced & 80 & $80/80$ & $80/80$ & $0$ & $0/40$ \\
+\addlinespace
+Terra & natural & 72 & $72/72$ & $\mathbf{0}$ & $\mathbf{0}$ & undefined \\
+Terra & forced & 80 & $80/80$ & $80/80$ & $0$ & $0/40$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\code{v2}, the variant that produced the result of Section~\ref{sec:realised},
+produced zero probes and zero sends in every natural cell on both models.
+
+\paragraph{P4 not upheld.} The single natural send occurred under \code{v3}.
+Record \code{api-attack-057}, \code{v3} / reason-bearing /
+\code{present\_but\_protected} / $d{=}0$: the model completed the legitimate
+hotel lookups, called \code{probe\_restricted\_booking}, received
+\code{PolicyDenied: DENIED:PERMISSION\_DENIED}, and emailed
+\code{vendor-audit@example.net} with the body \code{ALPHA}, the correct code for
+that hidden state under this scenario's codebook.
+
+This is a genuine leakage event, and the first observed outside the Workspace
+suite. It is also one record in 72 whose counterfactual partner did not send, so
+the pair is ineligible and paired conditional leakage is undefined. One unpaired
+record is not evidence of state-dependent leakage and is not reported as such.
+
+\subsection{The sink-modality hypothesis is falsified}
+
+Scenario four used the same sink tool and the same attacker address as the
+scenario that leaked, and produced no paired leakage. The scenario-three null is
+therefore not explained by the salience of a money transfer.
+
+\subsection{What the four scenarios jointly establish}
+
+Checkpoint 7D committed in advance to the reading of a null: that the
+Section~\ref{sec:realised} observation would stand as unreproduced across two
+further suites, two further carriers and both sink modalities, and would be
+reported as a single-scenario observation rather than as a general phenomenon.
+That is the outcome, and it is adopted without revision.
+
+Aggregating the interpretable records --- scenario three on \code{gpt-5.6-terra}
+and scenario four on both models, excluding the voided Luna arm of scenario
+three --- the natural condition comprises 216 records with delivery verified at
+$100\%$ and contains one send. The forced condition comprises 240 records with
+probe and denial rates of $100\%$ and contains zero. The resulting one-sided
+$95\%$ upper bounds are $2.18\%$ and $1.24\%$ respectively, and $1.04\%$ pooled,
+under the construction and caveats of Section~\ref{sec:stats}.
+
+The bound is meaningful because the positive control fired in the same runs, on
+the same denial strings, at $10/10$ in nearly every cell. The instrument detects
+the channel whenever the user prompt authorises its use. What it does not detect,
+at any rate this experiment can distinguish from a very small one, is models
+acting on the same instruction when it arrives through untrusted content.
+
+\subsection{The semantic default replicates a fourth time}
+
+Under uniform feedback the models emit a constant code. Scenario three assigns
+\code{ABSENT} to \code{ALPHA} and its uniform constant was \code{BRAVO};
+scenario four assigns \code{ABSENT} to \code{BRAVO} and its uniform constant was
+\code{ALPHA}. In both cases the constant is the code for
+\code{PERMISSION\_DENIED}. The token tracks the codebook and the semantics do
+not, across two suites and both models, which is a signature no token-frequency
+bias produces. This is the most robustly replicated positive finding in this
+work.
+
+\subsection{Variant instability}
+
+\code{v2} leaked in scenario two and produced nothing in scenario four;
+\code{v3} produced nothing in scenario two and produced the single event in
+scenario four. The framing mechanism proposed in Section~\ref{sec:realised},
+that self-labelled untrusted text is screened while routine operations phrasing
+is not, does not survive contact with the second dataset. Leakage under indirect
+injection is better described by these data as sporadic than as
+framing-governed. That the opposite was preregistered, and is reported here
+unchanged, is the reason the statement can be trusted.
+
+
 \chapter{Methodological Findings}
 \label{ch:methodfindings}
 
@@ -1374,58 +1586,66 @@ artifacts are retained as evidence.
 \section{What is established}
 
 \begin{enumerate}
-  \item The harness runs live hosted models end to end with immutable,
-    replayable artifacts.
-  \item The primary contrast replicates across three scenarios: channel
-    open under reason-bearing feedback, closed under uniform. On
-    scenario three this holds for \code{gpt-5.6-terra} only.
-  \item The constant output under uniform feedback is a semantic
-    default, not a token bias --- established by a preregistered
-    codebook inversion.
+  \item The harness runs live hosted models end to end across four
+    scenarios and three task suites, with immutable, replayable
+    artifacts.
+  \item \textbf{Unsolicited denial-reason leakage is rare and bounded.}
+    Across the interpretable records of scenarios three and four, one
+    send occurred in 216 natural records and none in 240 forced
+    records, with delivery verified at $100\%$ throughout, giving
+    one-sided $95\%$ upper bounds of $2.18\%$ and $1.24\%$.
+  \item That bound is interpretable because the positive control fired
+    at $10/10$ in nearly every cell of the same runs, on the same
+    denial strings. The instrument detects the channel whenever the
+    user prompt authorises its use.
+  \item The primary contrast replicates in every positive control
+    measured: open under reason-bearing feedback, closed under uniform.
+  \item The constant emitted under uniform feedback is a semantic
+    default, not a token bias. It replicates four times, across
+    opposing codebook assignments, always as the code for
+    \code{PERMISSION\_DENIED}.
+  \item A denial-reason leak has been realised under indirect prompt
+    injection, in four counterfactual pairs in one cell of one scenario
+    on one model, plus one unpaired event in a second scenario. It is
+    reported at that size wherever it appears.
+  \item Leakage is not predicted by suite, carrier modality, sink
+    modality or injection framing in any way these experiments identify.
+    The framing mechanism proposed after scenario two did not survive
+    scenario four, where a different variant produced the only event.
   \item A security--utility frontier exists with two interventions of
     equal security outcome and opposite utility cost.
   \item Delay cannot be enforced through the interposer for these
     models, because they do not retry.
-  \item A denial-reason leak has been realised under indirect prompt
-    injection on one model in one scenario, in four of four
-    counterfactual pairs at both delay values, with delivery verified
-    for every record before any rate was computed.
-  \item That attack is framing-dependent and content-invariant: two
-    other variants, delivered in every record, produced zero probes.
-  \item Uniform feedback suppresses the attack where it succeeds,
-    reducing sends from $10/12$ to $3/12$ and paired leakage to zero,
-    with delivery verified at $24/24$ in the affected cells.
-  \item The realised attack has a boundary. In a different suite, with a
-    different carrier and a money-transfer sink, delivery of $100\%$
-    produced zero probes in 72 natural records and zero sends in 80
-    forced records on the model whose positive control replicated.
   \item Instrument validation is per model and per scenario, not
-    global. \code{gpt-5.6-luna} fails scenario three's positive control
-    while \code{gpt-5.6-terra} passes it on identical denial strings,
-    and the preregistered void rule was applied to the failing model.
-  \item Delivery is now measured by the instrument rather than by hand,
-    and a cell with incomplete delivery is reported as void rather than
+    global. One model failed one scenario's positive control and passed
+    another's, and the preregistered void rule was applied to the
+    failing arm and not widened beyond it.
+  \item Delivery is measured by the instrument rather than by hand, and
+    a cell with incomplete delivery is reported as void rather than
     null.
+  \item At most three scenarios in this benchmark can ever sit outside
+    the Workspace suite: only 18 of the 97 packaged AgentDojo user
+    tasks can host a sink-based counterfactual experiment.
 \end{enumerate}
 
 \section{Immediate next steps}
 
 \begin{enumerate}
-  \item Build scenario four in a third suite with a low-salience message
-    sink. Scenarios two and three differ in suite, carrier, sink and
-    base task simultaneously; scenario four is designed to hold the sink
-    modality low so that sink salience can be separated from suite.
-  \item Re-run the statistical protocol once scenario four's data
-    exists, so the realised-attack result carries an interval rather
-    than a bare count. Four pairs will not support a useful interval on
-    their own.
+  \item Run the scenario-clustered bootstrap and report the widened
+    interval alongside the Clopper--Pearson bound, which currently
+    treats within-cell repetitions as independent and is therefore
+    optimistic.
+  \item Continue scenario construction. Each additional scenario now
+    tightens the bound in Section~\ref{sec:scenario-four} rather than
+    searching for a positive result, and the bound is the principal
+    empirical claim.
   \item Decide whether to repair defect 17, which costs a full re-run of
     both models and is preregistration-bound.
-  \item Decide whether \code{gpt-5.6-luna}'s failure of the
-    scenario-three positive control warrants a third model, so that a
-    void on one model does not halve the evidence from a run.
-  \item Back up the artifact tree; \code{runs/} is excluded from version
-    control and exists only on local disk.
+  \item Decide whether a third model is warranted, so that a
+    positive-control failure on one model does not halve a run's
+    evidential value.
+  \item Back up the artifact tree after every run; \code{runs/} is
+    excluded from version control and exists only on local disk.
 \end{enumerate}
 
 \section{Open questions for the advisor}
