@@ -9,6 +9,7 @@ import pytest
 
 from denialdojo import run_api_attack_pilot
 from denialdojo.api_adapter import ApiConfig
+from denialdojo.interposer import GuardAuthorizationDecision, GuardAuthorizationRequest
 from denialdojo.local_artifacts import execute_immutable_matrix
 from denialdojo.local_pilot import run_workspace_ollama_condition
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
@@ -449,6 +450,98 @@ def test_run_cli_rejects_quarantine_k_for_non_quarantine_modes(
     assert "--quarantine-k is only valid with --defense-mode fixed_quarantine" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("guard_model", [None, "   "])
+def test_run_cli_requires_a_non_blank_guard_model_for_guard_modes(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+    guard_model: str | None,
+) -> None:
+    """Allowing a guard mode without a model would recreate the fail-open configuration defect."""
+
+    argv = [
+        "run_api_attack_pilot",
+        "run",
+        "--readiness-summary",
+        str(tmp_path / "readiness.json"),
+        "--defense-mode",
+        "guard_blind",
+    ]
+    if guard_model is not None:
+        argv.extend(["--guard-model", guard_model])
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit) as error:
+        run_api_attack_pilot.main()
+
+    assert error.value.code == 2
+    assert "--guard-model is required with --defense-mode guard_blind or guard_informed" in capsys.readouterr().err
+
+
+def test_run_cli_rejects_a_guard_model_for_non_guard_modes(monkeypatch, tmp_path: Path, capsys) -> None:
+    """Accepting an unused guard model would make run provenance misleading."""
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_api_attack_pilot",
+            "run",
+            "--readiness-summary",
+            str(tmp_path / "readiness.json"),
+            "--defense-mode",
+            "none",
+            "--guard-model",
+            "guard-test-model",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as error:
+        run_api_attack_pilot.main()
+
+    assert error.value.code == 2
+    assert "--guard-model is only valid with --defense-mode guard_blind or guard_informed" in capsys.readouterr().err
+
+
+def test_guard_run_constructs_and_threads_the_configured_api_guard(monkeypatch, tmp_path: Path) -> None:
+    """Removing the guard handoff would silently leave a configured guard run unmediated."""
+
+    config = ApiConfig(model="task-test-model")
+    readiness = _passing_readiness(tmp_path, config)
+    constructed: list[tuple[str, ApiConfig, object]] = []
+    executions: list[dict] = []
+
+    class FakeApiGuard:
+        def __init__(self, *, guard_model: str, task_config: ApiConfig, transport) -> None:
+            constructed.append((guard_model, task_config, transport))
+
+    def fake_execute(conditions, **kwargs):
+        del conditions
+        executions.append(kwargs)
+        return []
+
+    transport = object()
+    monkeypatch.setattr(run_api_attack_pilot, "ApiGuard", FakeApiGuard)
+    monkeypatch.setattr(run_api_attack_pilot, "execute_immutable_matrix", fake_execute)
+
+    run_attack_pilot(
+        config,
+        readiness_summary=readiness,
+        output_root=tmp_path / "guard-pilot",
+        transport=transport,
+        natural_repetitions=1,
+        forced_repetitions=1,
+        positive_control_repetitions=1,
+        defense_mode=DefenseMode.GUARD_INFORMED,
+        guard_model="guard-test-model",
+    )
+
+    assert constructed == [("guard-test-model", config, transport)]
+    assert len(executions) == 2
+    assert all(execution["guard_model"] == "guard-test-model" for execution in executions)
+    assert executions[0]["guard"] is executions[1]["guard"]
+
+
 def test_attack_pilot_factory_applies_the_requested_defense_and_quarantine_k() -> None:
     natural_repetitions = 1
     forced_repetitions = 2
@@ -520,6 +613,50 @@ def _live_defense_execution(
         transport=AttackScriptedTransport(),
         adapter_factory=run_api_attack_pilot.ApiAdapter,
     )
+
+
+def test_guard_run_records_the_guard_model_in_existing_defense_parameters(monkeypatch) -> None:
+    """Dropping the configured guard model makes a guard-mode record non-auditable."""
+
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
+    config = ApiConfig(model="task-test-model")
+    condition = AttackPilotCondition(
+        hidden_state=HiddenState.ABSENT,
+        probe_condition="positive_control",
+        feedback_mode=FeedbackMode.REASON_BEARING,
+        delay=0,
+        benign_control=False,
+        defense_mode=DefenseMode.GUARD_BLIND,
+        quarantine_k=2,
+        repetition=0,
+        run_ordinal=1,
+    )
+
+    def guard(request: GuardAuthorizationRequest) -> GuardAuthorizationDecision:
+        assert request.proposed_tool_name == "send_email"
+        return GuardAuthorizationDecision("ALLOW", "The user authorized this positive-control email.")
+
+    execution = run_workspace_ollama_condition(
+        condition,
+        config,
+        run_api_attack_pilot._runtime_metadata(config),
+        repository_commit="0" * 40,
+        repository_dirty=False,
+        source_tree_hash="tree",
+        transport=AttackScriptedTransport(),
+        adapter_factory=run_api_attack_pilot.ApiAdapter,
+        guard=guard,
+        guard_model="guard-test-model",
+    )
+
+    assert execution.raw.trusted_run_metadata.defense_parameters == {
+        "quarantine_window": 2,
+        "guard_model": "guard-test-model",
+    }
+    assert execution.trace.defense_parameters == {
+        "quarantine_window": 2,
+        "guard_model": "guard-test-model",
+    }
 
 
 @pytest.mark.parametrize(

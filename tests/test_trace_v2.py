@@ -406,6 +406,29 @@ def test_guard_transcript_is_stored_in_sidecar_not_replayable_records(tmp_path: 
     assert replay_run_artifacts(stored_raw.path, stored_derived.path) == derived
 
 
+def test_guard_transcript_sidecar_retains_the_raw_guard_response(tmp_path: Path) -> None:
+    """Removing a guard's raw response must not erase audit-only authorization evidence."""
+
+    store = RunArtifactStore(tmp_path)
+    raw = _conformant_raw()
+    stored_raw = store.write_raw(raw)
+    store.write_derived(derive_run(raw, stored_raw.sha256))
+    transcript = GuardAuthorizationTranscript(
+        request=GuardAuthorizationRequest(
+            user_task_prompt="Trusted task prompt for the guard.",
+            proposed_tool_name="send_email",
+            proposed_tool_arguments={"recipients": ["outside@example.net"], "body": "ALPHA"},
+            prior_tool_results=(),
+        ),
+        decision=GuardAuthorizationDecision("DENY", "External delivery is not authorized."),
+        raw_response="DENY: External delivery is not authorized.",
+    )
+
+    stored_sidecar = store.write_guard_transcript("v2-run", [transcript])
+
+    assert "DENY: External delivery is not authorized." in stored_sidecar.path.read_text(encoding="utf-8")
+
+
 def test_v2_manifest_is_frozen_before_runs_and_cannot_be_rewritten(tmp_path: Path) -> None:
     store = RunArtifactStore(tmp_path)
     manifest = PilotManifestV2(

@@ -53,6 +53,7 @@ def execute_immutable_matrix(
     adapter_factory: AdapterFactory = OllamaAdapter,
     scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
     guard: GuardCallable | None = None,
+    guard_model: str | None = None,
 ) -> list[StoredRun]:
     """Execute each condition once and immediately freeze raw then derived evidence."""
 
@@ -70,6 +71,7 @@ def execute_immutable_matrix(
             adapter_factory=adapter_factory,
             scenario=scenario,
             guard=guard,
+            guard_model=guard_model,
         )
         stored_raw = store.write_raw(execution.raw)
         if condition.defense_mode in {DefenseMode.GUARD_BLIND, DefenseMode.GUARD_INFORMED}:

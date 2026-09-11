@@ -51,6 +51,7 @@ class GuardAuthorizationDecision:
 
     verdict: GuardVerdict
     reason: str
+    raw_response: str | None = None
 
     def __post_init__(self) -> None:
         if self.verdict not in {"ALLOW", "DENY"}:
@@ -68,6 +69,7 @@ class GuardAuthorizationTranscript:
 
     request: GuardAuthorizationRequest
     decision: GuardAuthorizationDecision
+    raw_response: str | None = None
 
 
 class DenialAwareToolsExecutor(BasePipelineElement):
@@ -123,7 +125,13 @@ class DenialAwareToolsExecutor(BasePipelineElement):
             decision = self.guard(request)
             if not isinstance(decision, GuardAuthorizationDecision):
                 raise TypeError("guard callable must return GuardAuthorizationDecision")
-            self.guard_transcript.append(GuardAuthorizationTranscript(request=request, decision=decision))
+            self.guard_transcript.append(
+                GuardAuthorizationTranscript(
+                    request=request,
+                    decision=decision,
+                    raw_response=decision.raw_response,
+                )
+            )
             return decision.verdict == "DENY"
 
         monitor = env.monitor

@@ -36,6 +36,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from denialdojo.api_adapter import ApiAdapter, ApiConfig, Transport
+from denialdojo.guard import ApiGuard
 from denialdojo.local_artifacts import (
     StoredRun,
     execute_immutable_matrix,
@@ -68,6 +69,7 @@ _DEFAULT_REPETITIONS = {
     "forced": 10,
     "positive_control": 10,
 }
+_GUARD_DEFENSE_MODES = frozenset({DefenseMode.GUARD_BLIND, DefenseMode.GUARD_INFORMED})
 
 
 class AttackPilotCondition(BaseModel):
@@ -335,8 +337,16 @@ def run_attack_pilot(
     defense_mode: DefenseMode | str = DefenseMode.NONE,
     quarantine_k: int = 2,
     scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
+    guard_model: str | None = None,
 ) -> dict:
     """Freeze the configured 4A attack and matched-benign v2 records for one readied model."""
+
+    resolved_defense_mode, resolved_quarantine_k = _defense_settings(defense_mode, quarantine_k)
+    if resolved_defense_mode in _GUARD_DEFENSE_MODES:
+        if guard_model is None or not guard_model.strip():
+            raise ValueError("--guard-model is required with --defense-mode guard_blind or guard_informed")
+    elif guard_model is not None:
+        raise ValueError("--guard-model is only valid with --defense-mode guard_blind or guard_informed")
 
     runtime = _runtime_metadata(config)
     scenario = get_scenario(scenario_id)
@@ -348,7 +358,11 @@ def run_attack_pilot(
         forced_repetitions=forced_repetitions,
         positive_control_repetitions=positive_control_repetitions,
     )
-    resolved_defense_mode, resolved_quarantine_k = _defense_settings(defense_mode, quarantine_k)
+    guard = (
+        ApiGuard(guard_model=guard_model, task_config=config, transport=transport)
+        if resolved_defense_mode in _GUARD_DEFENSE_MODES
+        else None
+    )
     conditions = attack_pilot_conditions(**{
         f"{probe_condition}_repetitions": count
         for probe_condition, count in repetition_counts.items()
@@ -409,6 +423,8 @@ def run_attack_pilot(
             transport=transport,
             adapter_factory=ApiAdapter,
             scenario=scenario,
+            guard=guard,
+            guard_model=guard_model,
         )
         summary = _arm_summary(arm, results, scenario)
         store.write_summary(summary)
@@ -843,11 +859,26 @@ def main() -> None:
         default=WORKSPACE_DOCUMENT_FILE_PROBE.id,
     )
     run_parser.add_argument("--readiness-summary", type=Path, required=True)
-    run_parser.add_argument("--output-root", type=Path, default=Path("runs") / "pilot")
+    run_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=Path("runs") / "pilot",
+        help=(
+            "artifact root; guard runs must use a distinct root because attack/benign directory names "
+            "do not include defense mode"
+        ),
+    )
     run_parser.add_argument(
         "--defense-mode",
         choices=[mode.value for mode in DefenseMode],
         default=DefenseMode.NONE.value,
+    )
+    run_parser.add_argument(
+        "--guard-model",
+        help=(
+            "required with guard_blind or guard_informed and forbidden for other defense modes; "
+            "guard runs require a distinct --output-root"
+        ),
     )
     run_parser.set_defaults(quarantine_k_explicit=False)
     run_parser.add_argument(
@@ -877,6 +908,10 @@ def main() -> None:
     attack_dir, benign_dir = output_directories(args.output_root, args.model, scenario_id=args.scenario)
     if args.command == "run":
         defense_mode = DefenseMode(args.defense_mode)
+        if defense_mode in _GUARD_DEFENSE_MODES and (args.guard_model is None or not args.guard_model.strip()):
+            parser.error("--guard-model is required with --defense-mode guard_blind or guard_informed")
+        if defense_mode not in _GUARD_DEFENSE_MODES and args.guard_model is not None:
+            parser.error("--guard-model is only valid with --defense-mode guard_blind or guard_informed")
         if args.quarantine_k_explicit and defense_mode != DefenseMode.FIXED_QUARANTINE:
             parser.error("--quarantine-k is only valid with --defense-mode fixed_quarantine")
         outcome = run_attack_pilot(
@@ -893,6 +928,7 @@ def main() -> None:
             defense_mode=defense_mode,
             quarantine_k=args.quarantine_k,
             scenario_id=args.scenario,
+            guard_model=args.guard_model,
         )
         print(json.dumps(outcome, indent=2))
         print()

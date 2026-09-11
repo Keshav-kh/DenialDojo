@@ -400,6 +400,7 @@ def run_workspace_ollama_condition(
     adapter_factory: AdapterFactory = OllamaAdapter,
     scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
     guard: GuardCallable | None = None,
+    guard_model: str | None = None,
 ) -> OllamaPilotExecution:
     """Run one frozen condition once, without TaskSuite's implicit three-attempt loop."""
 
@@ -429,6 +430,9 @@ def run_workspace_ollama_condition(
         quarantine_window=quarantine_k,
         guard=guard,
     )
+    defense_parameters = {"quarantine_window": quarantine_k}
+    if guard_model is not None:
+        defense_parameters["guard_model"] = guard_model
     pipeline = AgentPipeline(
         [
             SystemMessage(active_scenario.system_prompt),
@@ -510,7 +514,7 @@ def run_workspace_ollama_condition(
         elapsed_seconds=elapsed,
         terminal_status=terminal_status,
         terminal_error=terminal_error,
-        defense_parameters={"quarantine_window": quarantine_k},
+        defense_parameters=defense_parameters,
     )
     raw = RawRunRecord(
         trusted_run_metadata=TrustedRunMetadata(
@@ -528,7 +532,7 @@ def run_workspace_ollama_condition(
             requested_delay=condition.delay,
             defense_mode=condition.defense_mode,
             quarantine_k=quarantine_k,
-            defense_parameters={"quarantine_window": quarantine_k},
+            defense_parameters=defense_parameters,
             runtime=runtime_metadata,
             repetition=condition.repetition,
         ),
