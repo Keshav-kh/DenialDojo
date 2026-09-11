@@ -29,8 +29,15 @@ function Clear-FailedGateArtifacts($model) {
     $prefix  = "runs/pilot/checkpoint1g-$model-$Scenario"
     $summary = "$prefix-readiness/summary.json"
     if (Test-Path $summary) {
-        Say "readiness already passed for $model; reusing $summary"
-        return $true
+        # Existence is not success. A gate that ran and FAILED also writes a summary,
+        # and reusing it would send a known-bad readiness result to the pilot.
+        $passed = $false
+        try { $passed = [bool](Get-Content $summary -Raw | ConvertFrom-Json).benign_readiness_gate_passed } catch { $passed = $false }
+        if ($passed) {
+            Say "readiness already passed for $model; reusing $summary"
+            return $true
+        }
+        Say "existing readiness summary for $model did NOT pass its gate; archiving and re-running"
     }
     foreach ($suffix in @("-preflight", "-readiness")) {
         $dir = "$prefix$suffix"
