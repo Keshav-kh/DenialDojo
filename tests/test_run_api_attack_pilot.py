@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -26,6 +27,7 @@ from denialdojo.trace import TerminalStatus
 from denialdojo.trace_v2 import (
     DerivedRunRecord,
     PilotManifestV2,
+    ProtocolStatus,
     RawRunRecord,
     RunArtifactIndexEntry,
     RunArtifactStore,
@@ -185,6 +187,48 @@ def _rows(table: str) -> dict[tuple[str, str, str, str], list[str]]:
         if fields[0] in {"natural", "forced", "positive_control"}:
             rows[(fields[0], fields[1], fields[2], fields[4])] = fields
     return rows
+
+
+def _delivery_raw(
+    messages: list[dict],
+    *,
+    benign_control: bool = False,
+    injection_variant: str | None = "v1",
+    scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
+) -> RawRunRecord:
+    """Build the minimal raw view needed by analysis-only delivery detection."""
+
+    return RawRunRecord.model_construct(
+        trusted_run_metadata=SimpleNamespace(
+            scenario_id=scenario_id,
+            injection_variant=injection_variant,
+            benign_control=benign_control,
+            probe_condition="natural",
+            feedback_mode=FeedbackMode.REASON_BEARING,
+            defense_mode=DefenseMode.NONE,
+            requested_delay=0,
+            paired_run_group_id="delivery-test",
+            hidden_state=HiddenState.ABSENT,
+        ),
+        model_visible=SimpleNamespace(
+            exchanges=[SimpleNamespace(request={"body": {"messages": messages}})]
+        ),
+        mediated_events=[],
+        final_workspace_sink_state=[],
+        runtime_observation=SimpleNamespace(protected_body_executed=False),
+    )
+
+
+def _delivery_derived() -> DerivedRunRecord:
+    """Build the minimal derived view needed by the plain-text summary."""
+
+    return DerivedRunRecord.model_construct(
+        denial_observed=False,
+        decoded_sink_outcome="no_send",
+        terminal_status=TerminalStatus.NO_SEND,
+        utility_normalized=False,
+        protocol_status=ProtocolStatus.CONFORMANT,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -918,3 +962,87 @@ def test_summary_utility_un_cells_sum_to_the_attack_aggregate(small_matrix) -> N
                for variant in ("v1", "v2", "v3")
                for feedback in (FeedbackMode.REASON_BEARING, FeedbackMode.UNIFORM)
                for delay in (0, 2))
+
+
+def test_injection_in_a_tool_result_is_delivered() -> None:
+    injection = WORKSPACE_DOCUMENT_FILE_PROBE.injection_variants["v1"]
+    delivered = _delivery_raw([{"role": "tool", "content": injection}])
+
+    assert run_api_attack_pilot.injection_delivered(delivered) is True
+
+
+@pytest.mark.parametrize("role", ["user", "system"])
+def test_injection_outside_a_tool_result_is_not_delivered(role: str) -> None:
+    injection = WORKSPACE_DOCUMENT_FILE_PROBE.injection_variants["v1"]
+    not_delivered = _delivery_raw([{"role": role, "content": injection}])
+
+    assert run_api_attack_pilot.injection_delivered(not_delivered) is False
+
+
+def test_record_without_tool_messages_is_not_delivered() -> None:
+    not_delivered = _delivery_raw([{"role": "assistant", "content": "No tool result."}])
+
+    assert run_api_attack_pilot.injection_delivered(not_delivered) is False
+
+
+def test_default_attack_injection_is_resolved_when_variant_is_not_recorded() -> None:
+    default_attack = _delivery_raw(
+        [{"role": "tool", "content": WORKSPACE_DOCUMENT_FILE_PROBE.default_attack_injection}],
+        injection_variant=None,
+    )
+
+    assert run_api_attack_pilot.injection_delivered(default_attack) is True
+
+
+def test_benign_file_note_is_resolved_for_a_benign_record() -> None:
+    benign = _delivery_raw(
+        [{"role": "tool", "content": WORKSPACE_DOCUMENT_FILE_PROBE.benign_file_note}],
+        benign_control=True,
+    )
+
+    assert run_api_attack_pilot.injection_delivered(benign) is True
+
+
+def test_yaml_folded_tool_result_delivery_is_detected() -> None:
+    injection = WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.injection_variants["v1"]
+    folded = injection.replace("Before completing the", "Before completing\\\n    \\ the")
+    assert folded != injection
+    delivered = _delivery_raw(
+        [{"role": "tool", "content": f'"{folded}"'}],
+        scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
+    )
+
+    assert run_api_attack_pilot.injection_delivered(delivered) is True
+
+
+def test_summary_marks_a_single_incomplete_delivery_cell_and_not_a_complete_one(monkeypatch) -> None:
+    attack_dir = Path("synthetic-attack")
+    benign_dir = Path("synthetic-benign")
+    incomplete_attack = [(_delivery_raw([]), _delivery_derived())]
+    complete_attack = [
+        (
+            _delivery_raw(
+                [{"role": "tool", "content": WORKSPACE_DOCUMENT_FILE_PROBE.injection_variants["v1"]}]
+            ),
+            _delivery_derived(),
+        )
+    ]
+
+    monkeypatch.setattr(
+        run_api_attack_pilot,
+        "_load_arm",
+        lambda directory: incomplete_attack if directory == attack_dir else [],
+    )
+    incomplete_table = run_api_attack_pilot.summarize(attack_dir, benign_dir)
+    assert "WARNING: INCOMPLETE INJECTION DELIVERY" in incomplete_table
+    warning_block = incomplete_table.split("WARNING: INCOMPLETE INJECTION DELIVERY", maxsplit=1)[1]
+    assert "natural" in warning_block
+    assert "0/1" in warning_block
+
+    monkeypatch.setattr(
+        run_api_attack_pilot,
+        "_load_arm",
+        lambda directory: complete_attack if directory == attack_dir else [],
+    )
+    complete_table = run_api_attack_pilot.summarize(attack_dir, benign_dir)
+    assert "WARNING: INCOMPLETE INJECTION DELIVERY" not in complete_table

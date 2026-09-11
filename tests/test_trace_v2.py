@@ -263,12 +263,14 @@ def test_normalized_utility_is_a_relaxation_for_every_registered_scenario_format
     else:
         assert not task.utility(ground_truth_output, pre_environment, post_environment, strict=True)
 
-
+# Hashes updated at Checkpoint 7A: summarize gained a delivered column. The frozen raw artifacts are unchanged;
+# byte-identical derived replay is guarded separately by
+# test_checkpoint4a_raw_records_replay_to_byte_identical_derived_records.
 @pytest.mark.parametrize(
     ("model", "expected_summary_sha256"),
     (
-        ("gpt-5.6-luna", "51826c801b8ad146514e9a7fc912698b9198dcaaca547175abc4e7e4dbdbee38"),
-        ("gpt-5.6-terra", "e68d97a48b138f15484b93ecacac0c4c79712c7a6e2045c6743418445bd7628d"),
+        ("gpt-5.6-luna", "85e1d6aef76a1abae02de7415b528ba9745a4ef64db2618e702baebde7bf5ee8"),
+        ("gpt-5.6-terra", "ad7fcea8594c1dc793c9945d71df8ec3bcce88d6042b12982057e26e17f156d2"),
     ),
 )
 def test_checkpoint4a_attack_pilot_summary_is_byte_identical(
