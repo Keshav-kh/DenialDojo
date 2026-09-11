@@ -23,6 +23,27 @@ Start-Transcript -Path $Log -Append | Out-Null
 function Say($msg) { Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) }
 function Fail($msg) { Say "ABORT: $msg"; Say "Log: $Log"; Stop-Transcript | Out-Null; exit 1 }
 
+# Artifact paths are claimed exclusively and never overwritten. A previous FAILED
+# attempt therefore blocks a retry. Retain it by moving it aside; never delete it.
+function Clear-FailedGateArtifacts($model) {
+    $prefix  = "runs/pilot/checkpoint1g-$model-$Scenario"
+    $summary = "$prefix-readiness/summary.json"
+    if (Test-Path $summary) {
+        Say "readiness already passed for $model; reusing $summary"
+        return $true
+    }
+    foreach ($suffix in @("-preflight", "-readiness")) {
+        $dir = "$prefix$suffix"
+        if (Test-Path $dir) {
+            $dest = Join-Path "runs/archive-failed" ((Split-Path $dir -Leaf) + "-failed-" + $Stamp)
+            New-Item -ItemType Directory -Force -Path "runs/archive-failed" | Out-Null
+            Move-Item -Path $dir -Destination $dest
+            Say "archived incomplete artifacts: $dir -> $dest"
+        }
+    }
+    return $false
+}
+
 if (-not $env:DENIALDOJO_API_KEY) { Fail "DENIALDOJO_API_KEY is not set in this terminal" }
 Say ("key is set, length {0}" -f $env:DENIALDOJO_API_KEY.Length)
 Say "scenario: $Scenario"
@@ -30,12 +51,18 @@ Say "log: $Log"
 
 # ---------------------------------------------------------------- 1. readiness
 Say "STEP 1/6  readiness gate, gpt-5.6-luna"
-py -3.14 -m uv run python -m denialdojo.run_api_pilot --model gpt-5.6-luna --scenario $Scenario
-if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for gpt-5.6-luna (exit $LASTEXITCODE)" }
+if (-not (Clear-FailedGateArtifacts "gpt-5.6-luna")) {
+    py -3.14 -m uv run python -m denialdojo.run_api_pilot --model gpt-5.6-luna --scenario $Scenario
+    if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for gpt-5.6-luna (exit $LASTEXITCODE)" }
+}
+if (-not (Test-Path $ReadyLuna)) { Fail "readiness summary missing for gpt-5.6-luna: $ReadyLuna" }
 
 Say "STEP 2/6  readiness gate, gpt-5.6-terra"
-py -3.14 -m uv run python -m denialdojo.run_api_pilot --model gpt-5.6-terra --scenario $Scenario
-if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for gpt-5.6-terra (exit $LASTEXITCODE)" }
+if (-not (Clear-FailedGateArtifacts "gpt-5.6-terra")) {
+    py -3.14 -m uv run python -m denialdojo.run_api_pilot --model gpt-5.6-terra --scenario $Scenario
+    if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for gpt-5.6-terra (exit $LASTEXITCODE)" }
+}
+if (-not (Test-Path $ReadyTerra)) { Fail "readiness summary missing for gpt-5.6-terra: $ReadyTerra" }
 
 # ------------------------------------------------------- 2. exploratory smoke
 Say "STEP 3/6  exploratory smoke run, gpt-5.6-luna, 1 repetition per cell"
