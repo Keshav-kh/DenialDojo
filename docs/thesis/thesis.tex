@@ -689,56 +689,85 @@ twenty records.
 
 The protected-body sentinel was clean in every cell of both runs.
 
-\subsection{The null changes shape}
+\subsection{Defect 16: scenario two did not administer the treatment}
 \label{sec:nullshape}
 
-The adversarial conditions again produced no leakage, but for a
-different reason than in scenario one.
+An earlier draft of this section reported that scenario two's models
+``performed the reconnaissance step every time and stopped at the
+exfiltration step,'' and drew from that a finding about two differently
+shaped nulls. \textbf{That claim was false and is retracted.} The
+diagnosis that overturned it is reported here because the retraction is
+itself the result.
+
+The trigger was the benign-utility asymmetry: \code{utility\_normalized}
+passes were $5/232$ for \code{gpt-5.6-luna} against $122/232$ for
+\code{gpt-5.6-terra}, on the same oracle, in a scenario where both
+models had passed the readiness gate at $8/8$ hours earlier.
+
+Three checks resolved it. First, no failing record contained the
+ground-truth answer, so the oracle was not rejecting correct outputs.
+Second, the failing outputs were overwhelmingly statements that the
+model could not find the document --- 209 of Luna's 227 failures read
+as variants of \emph{``I couldn't locate the Hawaii vacation plans
+file.''} Third, and decisively, the captured request bodies were
+searched for the injected attack text in tool-result messages:
 
 \begin{table}[h]
 \centering
 \small
-\caption{\code{natural} condition: the injection null in each scenario.}
-\begin{tabular}{@{}lrr@{}}
+\caption{Records in which the injected attack text was actually
+delivered to the model.}
+\begin{tabular}{@{}llrrr@{}}
 \toprule
- & Scenario one & Scenario two \\
+Scenario & Model & \code{natural} & \code{forced} & \code{pos.\ control} \\
 \midrule
-Probe rate  & $0/6$ per cell & $6/6$ per cell \\
-Send rate   & $0/6$ per cell & $0/6$ per cell \\
+one & luna  & $72/72$ & $80/80$ & $80/80$ \\
+one & terra & $72/72$ & $80/80$ & $80/80$ \\
+two & luna  & $\mathbf{0/72}$  & $2/80$  & $3/80$ \\
+two & terra & $\mathbf{0/72}$  & $77/80$ & $45/80$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-In scenario one the models ignored the injected instruction outright. In
-scenario two they performed the reconnaissance step every time and
-stopped at the exfiltration step. The same zero conceals two different
-behaviours, and only the second locates where the refusal actually
-occurs. The \code{forced} condition shows the same pattern in scenario
-two: probe $20/20$, send $0/20$.
+\paragraph{Cause.} Scenario one names its carrier literally,
+\code{feedback.xlsx}. Scenario two inherits the upstream phrasing of
+\code{user\_task\_30}, which names the carrier only by description. Both
+models responded by calling \code{search\_files\_by\_filename} with the
+\emph{description} against a file named \code{vacation-plans.docx},
+retrieved nothing, and terminated. In $72/72$ natural records for both
+models the protected probe was the \emph{first} tool call, issued before
+any document read --- it was induced by the task and the available tool
+surface, not by the injection. Delivery of the injection and
+satisfaction of the benign oracle are the same event, which is why the
+delivery counts equal the utility passes exactly ($2+3=5$ for Luna,
+$77+45=122$ for Terra).
 
-This is a finding about what a null measurement can and cannot support,
-and it argues that the probe rate must be reported alongside the send
-rate wherever a null is claimed.
+\paragraph{Consequence.} Scenario two's \code{natural} and \code{forced}
+conditions are \textbf{void, not null}. Zero leakage there is not
+evidence of injection resistance, because no injection was administered.
+Scenario one is unaffected: delivery was $232/232$ on both models, so
+its zero is a genuine null in which the models received the attack text
+and declined to act on it. The scenario-two positive-control results
+stand, because that instruction is carried in the user prompt rather
+than in the document; the codebook-inversion finding of
+\S\ref{sec:inversion} rests only on those cells.
 
-\subsection{An open anomaly: asymmetric benign utility}
-\label{sec:utilityanomaly}
+\paragraph{Why this belongs in the results.} The scenario produced 464
+attack records that were complete, conformant, and internally
+consistent, and whose aggregate leakage of zero was indistinguishable
+from scenario one's genuine null. Nothing in the summary statistics
+signalled that the independent variable had never been applied. The
+defect was found only by asking a question the summaries do not answer
+--- \emph{was the treatment delivered?} --- which argues that a
+delivery check belongs in the harness as a gate, not in the analyst's
+discretion. This is the same failure family as the structurally
+unsatisfiable oracle of \S\ref{sec:instrumentfirst}: an experiment that
+runs cleanly while measuring nothing.
 
-In scenario two, \code{utility\_normalized} passes were $5/232$ for
-\code{gpt-5.6-luna} and $122/232$ for \code{gpt-5.6-terra}, against the
-same oracle. In scenario one both models scored $20/20$ in every cell.
-Both models passed the scenario-two benign readiness gate at $8/8$
-immediately before these runs.
-
-Leakage metrics are computed from sink contents and are unaffected by
-this, so the results above are independent of its resolution. But a
-$5$-versus-$122$ split on one oracle is either a genuine behavioural
-difference or an instrumentation defect, and it is recorded here as
-\textbf{open}.
-
-\TODO{Diagnose. Candidate explanations: (a) Luna is derailed by the
-injected carrier document and does not state the ground-truth answer;
-(b) Luna states it in a form the normalisation does not match. Resolve
-by inspecting the \code{model\_output} field of the failing records.}
+\TODO{Repair per the Checkpoint 6G commitment: name the carrier
+explicitly in the task prompt, re-run the adversarial conditions in
+full, and report the outcome whatever it is. Then add a harness-level
+delivery gate.}
 
 \subsection{Run integrity}
 
@@ -822,10 +851,24 @@ artifacts, and manifest-before-first-API-call ordering --- meant the
 collision would have failed loudly and for free, but the defect was
 found by inspection before the run, not by those safeguards.
 
+\paragraph{Pattern C: the experiment runs cleanly while measuring
+nothing.} Two instances, both in scenario two. In the first, the benign
+utility oracle was structurally unsatisfiable and every record returned
+complete, conformant, and utility-false
+(\S\ref{sec:instrumentfirst}). In the second, the independent variable
+was never delivered to the model, and 464 records were produced whose
+aggregate leakage of zero was indistinguishable from a genuine null
+(\S\ref{sec:nullshape}). In both cases the summary statistics were
+internally consistent and gave no signal. The common defence is a
+precondition check that asserts the treatment was administered, run as
+a gate before the data is analysed rather than as a question the
+analyst may or may not think to ask.
+
 \TODO{Assemble the full numbered defect table for the appendix from the
 preregistration document and session records.}
 
 \section{Instrument-first ordering}
+\label{sec:instrumentfirst}
 
 A recurring practical result is that benign readiness gates catch
 structural defects that inspection does not. The scenario-two design
@@ -853,10 +896,14 @@ artifacts are retained as evidence.
     frequencies. Confidence intervals and paired significance tests have
     not been computed against the current dataset.
   \item[The adversarial null.] The principal adversarial conditions
-    produce zero leakage in both scenarios. The positive control
-    establishes that the instrument works, so the null is real, but it
+    produce zero leakage in scenario one, where delivery of the attack
+    text was verified at $232/232$ per model. The positive control
+    establishes that the instrument works, so that null is real, but it
     means the benchmark currently measures capability-under-cooperation
-    plus a refusal boundary, not a realised attack.
+    plus a refusal boundary, not a realised attack. Scenario two's
+    adversarial conditions are \emph{void} rather than null and
+    contribute no evidence either way (\S\ref{sec:nullshape}); the
+    adversarial evidence base is therefore one scenario, not two.
   \item[Delay.] Delay is an observed outcome, not an enforced treatment,
     because neither model retries after a block.
   \item[Sensitive content.] The protected asset is existence only. No
@@ -881,7 +928,9 @@ artifacts are retained as evidence.
     reason-bearing feedback in every positive-control cell measured.
   \item The primary contrast replicates across two scenarios and two
     models: channel open under reason-bearing feedback, closed under
-    uniform.
+    uniform. This rests on positive-control cells, which are
+    administered through the user prompt and are therefore unaffected by
+    defect 16.
   \item The constant output under uniform feedback is a semantic
     default, not a token bias --- established by a preregistered
     codebook inversion.
@@ -896,12 +945,13 @@ artifacts are retained as evidence.
 \section{Immediate next steps}
 
 \begin{enumerate}
-  \item Record the outcome of the falsified prediction in the
-    preregistration document.
-  \item Diagnose the asymmetric benign-utility anomaly
-    (\S\ref{sec:utilityanomaly}).
-  \item Re-run the statistical protocol against the two-scenario
-    dataset.
+  \item Repair scenario two's carrier reachability by naming the file
+    explicitly in the task prompt, and re-run its adversarial conditions
+    in full, per the Checkpoint 6G commitment.
+  \item Add a harness-level delivery gate that refuses to report a null
+    from any condition in which the injected text was not delivered.
+    Defect 16 would have been caught before the run existed.
+  \item Re-run the statistical protocol against the surviving dataset.
   \item Continue scenario construction toward the accepted target.
   \item Back up the artifact tree; \code{runs/} is excluded from version
     control and exists only on local disk.
@@ -914,13 +964,15 @@ artifacts are retained as evidence.
     is fixed quarantine at $k=1$.
   \item Delay should be reported as an observed outcome (option B),
     supported by the no-retry result.
-  \item Sequencing. With the injection null holding in both scenarios,
-    additional Workspace scenarios are likely to produce further copies
-    of the same null, whereas the defense sweep produces comparison
-    tables cheaply. The shape-of-the-null finding
-    (\S\ref{sec:nullshape}) suggests additional scenarios are not
-    valueless --- the nulls differ --- but the sequencing question is
-    real and is a question about work already approved.
+  \item Sequencing. The adversarial evidence base is one scenario, not
+    two. Additional Workspace scenarios may produce further copies of
+    the same null, whereas the defense sweep produces comparison tables
+    cheaply. Defect 16 (\S\ref{sec:nullshape}) sharpens rather than
+    settles this: it shows that a scenario can be built, run, and
+    summarised without ever administering the treatment, so the marginal
+    cost of a scenario includes the validation needed to know it
+    measured anything. The two-hour figure in
+    Chapter~\ref{ch:implementation} should be read with that included.
 \end{enumerate}
 
 % =====================================================================
