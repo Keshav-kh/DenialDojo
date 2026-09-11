@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
+from collections.abc import Sequence
+from dataclasses import asdict
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -13,6 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from denialdojo.capture import CapturedExchange, MediatedToolEvent
+from denialdojo.interposer import GuardAuthorizationTranscript
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.scenarios import get_scenario
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus
@@ -217,6 +220,26 @@ class RunArtifactStore:
             self.root / "derived" / f"{record.run_id}.json",
             _serialized(record),
         )
+
+    def write_guard_transcript(
+        self,
+        run_id: str,
+        transcript: Sequence[GuardAuthorizationTranscript],
+    ) -> StoredArtifact:
+        """Freeze guard-only evidence at ``guard/<run-id>.json``, outside replay inputs."""
+
+        raw_path = self.root / "raw" / f"{run_id}.json"
+        if not raw_path.is_file():
+            raise FileNotFoundError(f"raw artifact does not exist for {run_id}")
+        payload = (
+            json.dumps(
+                {"run_id": run_id, "authorizations": [asdict(item) for item in transcript]},
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+        return self._write_exclusive(self.root / "guard" / f"{run_id}.json", payload)
 
     def write_manifest(self, manifest: PilotManifestV2) -> StoredArtifact:
         return self._write_exclusive(self.root / "manifest.json", _serialized(manifest))

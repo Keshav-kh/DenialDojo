@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from denialdojo.api_adapter import ApiConfig
+from denialdojo.interposer import GuardCallable
 from denialdojo.local_pilot import (
     AdapterFactory,
     AdapterTransport,
@@ -14,6 +15,7 @@ from denialdojo.local_pilot import (
     ReadinessCondition,
     run_workspace_ollama_condition,
 )
+from denialdojo.models import DefenseMode
 from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario
 from denialdojo.trace import ModelRuntimeMetadata
@@ -50,6 +52,7 @@ def execute_immutable_matrix(
     transport: AdapterTransport | None = None,
     adapter_factory: AdapterFactory = OllamaAdapter,
     scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
+    guard: GuardCallable | None = None,
 ) -> list[StoredRun]:
     """Execute each condition once and immediately freeze raw then derived evidence."""
 
@@ -66,8 +69,11 @@ def execute_immutable_matrix(
             transport=transport,
             adapter_factory=adapter_factory,
             scenario=scenario,
+            guard=guard,
         )
         stored_raw = store.write_raw(execution.raw)
+        if condition.defense_mode in {DefenseMode.GUARD_BLIND, DefenseMode.GUARD_INFORMED}:
+            store.write_guard_transcript(condition.run_id, execution.guard_transcript)
         derived = derive_run(execution.raw, stored_raw.sha256)
         stored_derived = store.write_derived(derived)
         replay_run_artifacts(stored_raw.path, stored_derived.path)

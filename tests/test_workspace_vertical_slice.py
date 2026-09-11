@@ -21,6 +21,12 @@ from denialdojo.workspace_experiment import (
     run_workspace_benign_control,
 )
 
+_BASELINE_DEFENSE_MODES = (
+    DefenseMode.NONE,
+    DefenseMode.IMMEDIATE_ADJACENCY,
+    DefenseMode.FIXED_QUARANTINE,
+)
+
 
 def _visible_text(execution) -> str:
     parts = [execution.user_prompt]
@@ -52,7 +58,7 @@ def test_uses_genuine_agentdojo_workspace_state_and_tools() -> None:
 
 
 def test_prompts_and_injected_bytes_are_identical_across_hidden_states() -> None:
-    for feedback_mode, defense_mode, delay in product(FeedbackMode, DefenseMode, (0, 2)):
+    for feedback_mode, defense_mode, delay in product(FeedbackMode, _BASELINE_DEFENSE_MODES, (0, 2)):
         absent = run_workspace_attack(
             HiddenState.ABSENT,
             feedback_mode=feedback_mode,
@@ -94,7 +100,7 @@ def test_hidden_assignment_is_not_model_visible_except_controlled_denial() -> No
 
 def test_protected_body_never_executes_and_probe_and_sink_are_mediated() -> None:
     for hidden_state, feedback_mode, defense_mode, delay in product(
-        HiddenState, FeedbackMode, DefenseMode, (0, 2)
+        HiddenState, FeedbackMode, _BASELINE_DEFENSE_MODES, (0, 2)
     ):
         execution = run_workspace_attack(
             hidden_state,
@@ -199,7 +205,7 @@ def test_uniform_feedback_does_not_recover_reason_distinction() -> None:
 
 def test_every_run_has_fresh_workspace_and_interposer_state() -> None:
     for hidden_state, feedback_mode, defense_mode, delay in product(
-        HiddenState, FeedbackMode, DefenseMode, (0, 2)
+        HiddenState, FeedbackMode, _BASELINE_DEFENSE_MODES, (0, 2)
     ):
         first = run_workspace_attack(
             hidden_state,

@@ -3,6 +3,11 @@ from pathlib import Path
 
 import pytest
 
+from denialdojo.interposer import (
+    GuardAuthorizationDecision,
+    GuardAuthorizationRequest,
+    GuardAuthorizationTranscript,
+)
 from denialdojo.local_artifacts import StoredRun, benign_readiness_gate
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.scenarios import get_scenario, scenario_ids
@@ -375,6 +380,30 @@ def test_v2_raw_and_derived_files_are_exclusive_and_digest_bound(tmp_path: Path)
         store.write_raw(raw)
     with pytest.raises(FileExistsError):
         store.write_derived(derived)
+
+
+def test_guard_transcript_is_stored_in_sidecar_not_replayable_records(tmp_path: Path) -> None:
+    store = RunArtifactStore(tmp_path)
+    raw = _conformant_raw()
+    stored_raw = store.write_raw(raw)
+    derived = derive_run(raw, stored_raw.sha256)
+    stored_derived = store.write_derived(derived)
+    transcript = GuardAuthorizationTranscript(
+        request=GuardAuthorizationRequest(
+            user_task_prompt="Trusted task prompt for the guard.",
+            proposed_tool_name="send_email",
+            proposed_tool_arguments={"recipients": ["outside@example.net"], "body": "ALPHA"},
+            prior_tool_results=(),
+        ),
+        decision=GuardAuthorizationDecision("DENY", "External delivery is not authorized."),
+    )
+
+    stored_sidecar = store.write_guard_transcript("v2-run", [transcript])
+
+    assert stored_sidecar.path == tmp_path / "guard" / "v2-run.json"
+    assert "Trusted task prompt for the guard." in stored_sidecar.path.read_text(encoding="utf-8")
+    assert "Trusted task prompt for the guard." not in stored_raw.path.read_text(encoding="utf-8")
+    assert replay_run_artifacts(stored_raw.path, stored_derived.path) == derived
 
 
 def test_v2_manifest_is_frozen_before_runs_and_cannot_be_rewritten(tmp_path: Path) -> None:

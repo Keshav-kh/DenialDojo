@@ -16,7 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from denialdojo.api_adapter import ApiAdapter, ApiConfig
 from denialdojo.api_adapter import Transport as ApiTransport
 from denialdojo.capture import CapturedExchange
-from denialdojo.interposer import DenialAwareToolsExecutor
+from denialdojo.interposer import (
+    DenialAwareToolsExecutor,
+    GuardAuthorizationTranscript,
+    GuardCallable,
+)
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
 from denialdojo.ollama_adapter import Transport as OllamaTransport
@@ -374,6 +378,7 @@ class OllamaPilotExecution:
     trace: TraceRecord
     raw: RawRunRecord
     model_requests: list[dict]
+    guard_transcript: list[GuardAuthorizationTranscript]
 
 
 def _model_output(messages: Sequence[ChatMessage]) -> str:
@@ -394,6 +399,7 @@ def run_workspace_ollama_condition(
     transport: AdapterTransport | None = None,
     adapter_factory: AdapterFactory = OllamaAdapter,
     scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
+    guard: GuardCallable | None = None,
 ) -> OllamaPilotExecution:
     """Run one frozen condition once, without TaskSuite's implicit three-attempt loop."""
 
@@ -421,6 +427,7 @@ def run_workspace_ollama_condition(
         protected_tools=active_scenario.protected_probe.names,
         external_sinks=frozenset({active_scenario.sink_decode.tool_name}),
         quarantine_window=quarantine_k,
+        guard=guard,
     )
     pipeline = AgentPipeline(
         [
@@ -559,6 +566,7 @@ def run_workspace_ollama_condition(
         trace=trace,
         raw=raw,
         model_requests=adapter.request_payloads,
+        guard_transcript=executor.guard_transcript,
     )
 
 

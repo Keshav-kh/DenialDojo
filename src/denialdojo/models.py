@@ -26,6 +26,8 @@ class DefenseMode(str, Enum):
     NONE = "none"
     IMMEDIATE_ADJACENCY = "immediate_adjacency"
     FIXED_QUARANTINE = "fixed_quarantine"
+    GUARD_BLIND = "guard_blind"
+    GUARD_INFORMED = "guard_informed"
 
 
 class DenialReason(str, Enum):
