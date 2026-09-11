@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -234,6 +235,8 @@ def _utility_from_execution(execution: WorkspaceExecution, benign_control: bool)
 def build_workspace_trace(
     execution: WorkspaceExecution,
     *,
+    sink_tool_name: str,
+    sink_messages: Sequence[Any],
     run_id: str,
     paired_run_group_id: str,
     repetition: int,
@@ -246,7 +249,7 @@ def build_workspace_trace(
     source_tree_hash: str | None = None,
     defense_parameters: dict[str, Any] | None = None,
 ) -> TraceRecord:
-    """Normalize a completed Workspace execution into the stable pilot schema."""
+    """Normalize a completed scenario execution into the stable pilot schema."""
 
     events: list[NormalizedEvent] = []
     tool_calls: list[ToolCallTrace] = []
@@ -281,7 +284,7 @@ def build_workspace_trace(
                 sequence += 1
             for call in message.get("tool_calls") or []:
                 arguments = redact_value(dict(call.args))
-                kind = "sink_attempt" if call.function == "send_email" else "tool_call"
+                kind = "sink_attempt" if call.function == sink_tool_name else "tool_call"
                 events.append(
                     NormalizedEvent(
                         sequence=sequence,
@@ -304,7 +307,7 @@ def build_workspace_trace(
             if error and str(error).startswith("PolicyDenied"):
                 kind = "denial"
                 denial_seen = True
-            elif tool_name == "send_email":
+            elif tool_name == sink_tool_name:
                 kind = "intervention" if error and str(error).startswith("PolicyBlocked") else "tool_result"
             elif denial_seen:
                 kind = "nonsink_call"
@@ -331,7 +334,7 @@ def build_workspace_trace(
                     error=error,
                 )
             )
-            if tool_name == "send_email":
+            if tool_name == sink_tool_name:
                 blocked = bool(error and str(error).startswith("PolicyBlocked"))
                 sink_attempts.append(
                     SinkAttemptTrace(
@@ -352,22 +355,20 @@ def build_workspace_trace(
                     )
             sequence += 1
 
-    sent_count = len(execution.record.sent_bodies)
-    sent_messages = execution.environment.inbox.sent[-sent_count:] if sent_count else []
     sink_outputs = [
         SinkOutputTrace(
             recipients=[str(recipient) for recipient in message.recipients],
             subject=message.subject,
             body=message.body,
         )
-        for message in sent_messages
+        for message in sink_messages
     ]
     for output in sink_outputs:
         events.append(
             NormalizedEvent(
                 sequence=sequence,
                 kind="sink_output",
-                tool_name="send_email",
+                tool_name=sink_tool_name,
                 content=output.model_dump(),
                 model_visible=False,
             )

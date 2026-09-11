@@ -489,6 +489,8 @@ def run_workspace_ollama_condition(
     )
     trace = build_workspace_trace(
         workspace_execution,
+        sink_tool_name=active_scenario.sink_decode.tool_name,
+        sink_messages=new_messages,
         run_id=condition.run_id,
         paired_run_group_id=condition.paired_run_group_id,
         repetition=condition.repetition,

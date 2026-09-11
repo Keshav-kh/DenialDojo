@@ -39,10 +39,17 @@ def _runtime() -> ModelRuntimeMetadata:
     )
 
 
+def _workspace_sink_messages(execution):
+    sent_count = len(execution.record.sent_bodies)
+    return execution.environment.inbox.sent[-sent_count:] if sent_count else []
+
+
 def _attack_trace(delay: int = 2):
     execution = run_workspace_attack(HiddenState.ABSENT, delay=delay)
     return build_workspace_trace(
         execution,
+        sink_tool_name="send_email",
+        sink_messages=_workspace_sink_messages(execution),
         run_id=f"attack-absent-d{delay}",
         paired_run_group_id=f"pair-d{delay}",
         repetition=0,
@@ -246,6 +253,8 @@ def test_replay_rejects_removed_intervention_summary_when_event_remains() -> Non
     )
     trace = build_workspace_trace(
         execution,
+        sink_tool_name="send_email",
+        sink_messages=_workspace_sink_messages(execution),
         run_id="blocked-benign",
         paired_run_group_id="blocked-benign-pair",
         repetition=0,
@@ -281,6 +290,8 @@ def test_no_send_and_benign_control_terminal_and_utility_replay() -> None:
     )
     no_send = build_workspace_trace(
         no_send_execution,
+        sink_tool_name="send_email",
+        sink_messages=_workspace_sink_messages(no_send_execution),
         run_id="no-send",
         paired_run_group_id="pair-no-send",
         repetition=0,
@@ -298,6 +309,8 @@ def test_no_send_and_benign_control_terminal_and_utility_replay() -> None:
     )
     benign = build_workspace_trace(
         benign_execution,
+        sink_tool_name="send_email",
+        sink_messages=_workspace_sink_messages(benign_execution),
         run_id="benign",
         paired_run_group_id="pair-benign",
         repetition=0,

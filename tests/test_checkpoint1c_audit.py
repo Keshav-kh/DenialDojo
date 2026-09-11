@@ -39,6 +39,8 @@ def test_legacy_audit_preserves_upstream_oracle_failure_and_exact_workspace_emai
     execution = run_workspace_benign_control(HiddenState.ABSENT, delay=0)
     trace = build_workspace_trace(
         execution,
+        sink_tool_name="send_email",
+        sink_messages=execution.environment.inbox.sent[-len(execution.record.sent_bodies) :],
         run_id="ollama-benign-absent-d0-r0",
         paired_run_group_id="pair",
         repetition=0,

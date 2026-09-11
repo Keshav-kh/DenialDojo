@@ -9,6 +9,11 @@ from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus, build_workspa
 from denialdojo.workspace_experiment import run_workspace_attack, run_workspace_benign_control
 
 
+def _workspace_sink_messages(execution):
+    sent_count = len(execution.record.sent_bodies)
+    return execution.environment.inbox.sent[-sent_count:] if sent_count else []
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("runs/pilot/scripted/traces.jsonl"))
@@ -40,6 +45,8 @@ def main() -> None:
                 traces.append(
                     build_workspace_trace(
                         execution,
+                        sink_tool_name="send_email",
+                        sink_messages=_workspace_sink_messages(execution),
                         run_id=f"scripted-{control}-{state.value}-d{delay}",
                         paired_run_group_id=f"scripted-{control}-d{delay}",
                         repetition=0,
