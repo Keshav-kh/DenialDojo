@@ -47,7 +47,7 @@ class InjectionCarrier:
     environment_object: str
     field: str
     injection_key: str
-    filename: str
+    filename: str | None = None
 
 
 @dataclass(frozen=True)
