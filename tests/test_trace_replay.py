@@ -44,6 +44,10 @@ def _workspace_sink_messages(execution):
     return execution.environment.inbox.sent[-sent_count:] if sent_count else []
 
 
+def _replay_workspace_trace(trace):
+    return replay_trace(trace, sink_tool_name="send_email")
+
+
 def _attack_trace(delay: int = 2):
     execution = run_workspace_attack(HiddenState.ABSENT, delay=delay)
     return build_workspace_trace(
@@ -133,7 +137,7 @@ def test_trace_jsonl_and_manifest_are_written_and_read_without_generated_repo_fi
 def test_deterministic_replay_recomputes_workspace_evaluators() -> None:
     trace = _attack_trace()
 
-    replayed = replay_trace(trace)
+    replayed = _replay_workspace_trace(trace)
 
     assert replayed == trace.evaluator_outputs
 
@@ -150,9 +154,9 @@ def test_replay_detects_tampered_delay_and_evaluator_output() -> None:
     )
 
     with pytest.raises(ReplayError, match="delay"):
-        replay_trace(tampered_delay)
+        _replay_workspace_trace(tampered_delay)
     with pytest.raises(ReplayError, match="leakage"):
-        replay_trace(tampered_output)
+        _replay_workspace_trace(tampered_output)
 
 
 def test_replay_detects_terminal_event_mismatch() -> None:
@@ -161,7 +165,7 @@ def test_replay_detects_terminal_event_mismatch() -> None:
     events[-1] = events[-1].model_copy(update={"content": TerminalStatus.NO_SEND.value})
 
     with pytest.raises(ReplayError, match="terminal event"):
-        replay_trace(trace.model_copy(update={"normalized_events": events}))
+        _replay_workspace_trace(trace.model_copy(update={"normalized_events": events}))
 
 
 def test_replay_rejects_sink_summary_that_conflicts_with_mediated_events() -> None:
@@ -172,7 +176,7 @@ def test_replay_rejects_sink_summary_that_conflicts_with_mediated_events() -> No
     )
 
     with pytest.raises(ReplayError, match="sink output"):
-        replay_trace(
+        _replay_workspace_trace(
             trace.model_copy(
                 update={"sink_outputs": sink_outputs, "evaluator_outputs": evaluator_outputs}
             )
@@ -229,7 +233,7 @@ def test_replay_requires_registered_attack_recipient_for_leakage() -> None:
         }
     )
 
-    assert replay_trace(updated).leakage_success is False
+    assert _replay_workspace_trace(updated).leakage_success is False
 
 
 def test_replay_rejects_normalized_denial_that_conflicts_with_denial_summary() -> None:
@@ -242,7 +246,7 @@ def test_replay_rejects_normalized_denial_that_conflicts_with_denial_summary() -
     ]
 
     with pytest.raises(ReplayError, match=r"summary.*normalized events"):
-        replay_trace(trace.model_copy(update={"normalized_events": events}))
+        _replay_workspace_trace(trace.model_copy(update={"normalized_events": events}))
 
 
 def test_replay_rejects_removed_intervention_summary_when_event_remains() -> None:
@@ -267,7 +271,7 @@ def test_replay_rejects_removed_intervention_summary_when_event_remains() -> Non
     evaluator_outputs = trace.evaluator_outputs.model_copy(update={"intervention_count": 0})
 
     with pytest.raises(ReplayError, match="intervention"):
-        replay_trace(
+        _replay_workspace_trace(
             trace.model_copy(
                 update={"intervention_events": [], "evaluator_outputs": evaluator_outputs}
             )
@@ -279,7 +283,7 @@ def test_replay_rejects_malformed_jsonl_loudly(tmp_path) -> None:
     trace_path.write_text('{"schema_version":"broken"}\nnot-json\n', encoding="utf-8")
 
     with pytest.raises(ReplayError, match="line 1"):
-        replay_jsonl(trace_path)
+        replay_jsonl(trace_path, sink_tool_name="send_email")
 
 
 def test_no_send_and_benign_control_terminal_and_utility_replay() -> None:
@@ -321,7 +325,7 @@ def test_no_send_and_benign_control_terminal_and_utility_replay() -> None:
         terminal_status=TerminalStatus.COMPLETE,
     )
 
-    assert replay_trace(no_send).decoded_sink_outcome == "no_send"
-    assert replay_trace(no_send).leakage_success is False
-    assert replay_trace(benign).benign_utility is True
-    assert replay_trace(benign).utility_under_attack is True
+    assert _replay_workspace_trace(no_send).decoded_sink_outcome == "no_send"
+    assert _replay_workspace_trace(no_send).leakage_success is False
+    assert _replay_workspace_trace(benign).benign_utility is True
+    assert _replay_workspace_trace(benign).utility_under_attack is True

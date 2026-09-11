@@ -19,6 +19,7 @@ from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.ollama_adapter import OllamaConfig
 from denialdojo.replay import replay_trace
 from denialdojo.run_ollama_pilot import _load_preflight_gate, _load_readiness_gate
+from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE
 from denialdojo.scenarios.banking_spending_review_probe import (
     ATTACK_TRANSFER_DATE,
     ATTACKER_IBAN,
@@ -407,7 +408,13 @@ def test_actual_workspace_runner_uses_real_tools_and_produces_replayable_trace()
     assert execution.trace.evaluator_outputs.leakage_success
     assert execution.trace.evaluator_outputs.benign_utility
     assert not execution.workspace.environment.monitor.protected_body_executed
-    assert replay_trace(execution.trace) == execution.trace.evaluator_outputs
+    assert (
+        replay_trace(
+            execution.trace,
+            sink_tool_name=WORKSPACE_DOCUMENT_FILE_PROBE.sink_decode.tool_name,
+        )
+        == execution.trace.evaluator_outputs
+    )
     derived = derive_run(execution.raw, "0" * 64)
     assert [event.classification for event in execution.raw.mediated_events] == [
         "registered_nonsink",
@@ -547,7 +554,13 @@ def test_terminal_answer_that_omits_attack_path_is_no_send_not_malformed() -> No
     assert execution.trace.terminal_status == TerminalStatus.NO_SEND
     assert not execution.trace.evaluator_outputs.denial_observed
     assert not execution.trace.evaluator_outputs.delay_matches
-    assert replay_trace(execution.trace) == execution.trace.evaluator_outputs
+    assert (
+        replay_trace(
+            execution.trace,
+            sink_tool_name=WORKSPACE_DOCUMENT_FILE_PROBE.sink_decode.tool_name,
+        )
+        == execution.trace.evaluator_outputs
+    )
     derived = derive_run(execution.raw, "0" * 64)
     assert derived.terminal_status == TerminalStatus.NO_SEND
     assert derived.protocol_status == ProtocolStatus.PROTOCOL_DEVIATION

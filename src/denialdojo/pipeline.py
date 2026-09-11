@@ -22,6 +22,8 @@ def build_scripted_pipeline(
     executor = DenialAwareToolsExecutor(
         feedback_mode=feedback_mode,
         defense_mode=defense_mode,
+        protected_tools=frozenset({"probe_protected_resource"}),
+        external_sinks=frozenset({"send_external_message"}),
         quarantine_window=quarantine_window,
     )
     pipeline = AgentPipeline(
@@ -48,6 +50,8 @@ def build_llm_pipeline(
     executor = DenialAwareToolsExecutor(
         feedback_mode=feedback_mode,
         defense_mode=defense_mode,
+        protected_tools=frozenset({"probe_protected_resource"}),
+        external_sinks=frozenset({"send_external_message"}),
         quarantine_window=quarantine_window,
     )
     pipeline = AgentPipeline(

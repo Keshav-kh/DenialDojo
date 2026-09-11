@@ -65,6 +65,8 @@ def _build_pipeline(
     executor = DenialAwareToolsExecutor(
         feedback_mode=feedback_mode,
         defense_mode=defense_mode,
+        protected_tools=frozenset({"probe_restricted_file"}),
+        external_sinks=frozenset({"send_email"}),
         quarantine_window=quarantine_window,
     )
     pipeline = AgentPipeline(

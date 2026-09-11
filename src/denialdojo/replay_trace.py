@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from denialdojo.replay import replay_jsonl
+from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE
 from denialdojo.trace_v2 import replay_run_artifacts
 
 
@@ -22,7 +23,10 @@ def main() -> None:
             "derived_outputs": [output.model_dump(mode="json")],
         }
     else:
-        outputs = replay_jsonl(args.trace_path)
+        outputs = replay_jsonl(
+            args.trace_path,
+            sink_tool_name=WORKSPACE_DOCUMENT_FILE_PROBE.sink_decode.tool_name,
+        )
         payload = {
             "trace_path": str(args.trace_path),
             "replayed_records": len(outputs),

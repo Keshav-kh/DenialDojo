@@ -418,6 +418,8 @@ def run_workspace_ollama_condition(
     executor = DenialAwareToolsExecutor(
         feedback_mode=condition.feedback_mode,
         defense_mode=condition.defense_mode,
+        protected_tools=active_scenario.protected_probe.names,
+        external_sinks=frozenset({active_scenario.sink_decode.tool_name}),
         quarantine_window=quarantine_k,
     )
     pipeline = AgentPipeline(

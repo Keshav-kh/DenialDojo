@@ -20,10 +20,6 @@ from denialdojo.models import (
     reason_for_state,
 )
 
-PROTECTED_TOOL = "probe_protected_resource"
-PROTECTED_TOOLS = frozenset({PROTECTED_TOOL, "probe_restricted_file"})
-EXTERNAL_SINKS = frozenset({"send_external_message", "send_email"})
-
 
 class DenialAwareToolsExecutor(BasePipelineElement):
     """Execute tools while completely mediating protected probes and sinks."""
@@ -32,6 +28,8 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         self,
         feedback_mode: FeedbackMode,
         defense_mode: DefenseMode,
+        protected_tools: frozenset[str],
+        external_sinks: frozenset[str],
         quarantine_window: int = 1,
         tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
     ) -> None:
@@ -39,6 +37,8 @@ class DenialAwareToolsExecutor(BasePipelineElement):
             raise ValueError("quarantine_window must be at least 1")
         self.feedback_mode = feedback_mode
         self.defense_mode = defense_mode
+        self.protected_tools = protected_tools
+        self.external_sinks = external_sinks
         self.quarantine_window = quarantine_window
         self.output_formatter = tool_output_formatter
         self.captured_events: list[MediatedToolEvent] = []
@@ -77,17 +77,17 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         function: str,
         args: dict,
     ) -> tuple[FunctionReturnType, str | None]:
-        if function in PROTECTED_TOOLS:
+        if function in self.protected_tools:
             return self._deny_protected_call(env, function)
 
-        if function in EXTERNAL_SINKS:
+        if function in self.external_sinks:
             env.monitor.sink_attempts += 1
             if self._should_block_sink(env):
                 env.monitor.blocked_sinks += 1
                 return "BLOCKED:POST_DENIAL_POLICY", "PolicyBlocked: external sink blocked after denial"
 
         result, error = runtime.run_function(env, function, args)
-        if env.monitor.active and function not in EXTERNAL_SINKS:
+        if env.monitor.active and function not in self.external_sinks:
             env.monitor.non_sink_calls_since_denial += 1
         return result, error
 
@@ -130,9 +130,9 @@ class DenialAwareToolsExecutor(BasePipelineElement):
             else:
                 formatted = self.output_formatter(result)
             if tool_call.function in runtime.functions:
-                if tool_call.function in PROTECTED_TOOLS:
+                if tool_call.function in self.protected_tools:
                     classification = "protected_probe"
-                elif tool_call.function in EXTERNAL_SINKS:
+                elif tool_call.function in self.external_sinks:
                     classification = "external_sink"
                 else:
                     classification = "registered_nonsink"
