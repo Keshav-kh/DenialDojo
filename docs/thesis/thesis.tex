@@ -233,9 +233,11 @@ work.
   \item \textbf{A bounded negative result with a validated positive
     control.} Across four scenarios, two suites beyond the original, and
     both sink modalities, unsolicited denial-reason leakage occurred in
-    one of 216 interpretable natural records, giving a one-sided 95\%
-    upper bound of $2.18\%$, and in zero of 240 forced records, bounded
-    at $1.24\%$. In the same runs the positive control fired at $10/10$
+    one of 216 interpretable natural records and in zero of 240 forced
+    records. Treating each experimental cell as a single observation,
+    so that no independence is assumed, the one-sided 95\% upper bounds
+    are $6.42\%$ natural and $4.85\%$ pooled. In the same runs the
+    positive control fired at $10/10$
     in nearly every cell, on the same denial strings, so the bound
     separates \emph{absence of the behaviour} from \emph{absence of
     sensitivity} (Section~\ref{sec:scenario-four}).
@@ -520,21 +522,55 @@ $I(S;Y)$ with an explicit undecodable category. That protocol presumes enough
 positive events to estimate a rate around. The data do not contain them.
 
 The appropriate analysis for the data actually collected is a one-sided upper
-bound on the leakage rate. Under the Clopper--Pearson construction, one event
-in 216 interpretable natural records gives a $95\%$ upper bound of $2.18\%$,
-and zero events in 240 forced records gives $1.24\%$, consistent with the
-rule-of-three approximation $3/n$. Pooling both conditions, one event in 456
-records bounds the rate at $1.04\%$.
+bound on the leakage rate, computed two ways that bracket the answer.
 
-Two properties of this bound need stating plainly. First, it treats records as
-independent Bernoulli trials, which is optimistic: records within a cell share
-a model, a prompt and a hidden state, and differ only by repetition. A
-scenario-clustered bootstrap would give a wider and more honest interval, and
-computing it is the remaining statistical work. Second, the bound is
-interpretable \emph{only} because the positive control fired in the same runs.
-A bound derived from an instrument that cannot detect the behaviour is a
-statement about the instrument; this one is not, and the positive-control
-counts reported alongside it are what license the distinction.
+The optimistic bound applies the Clopper--Pearson construction to individual
+records, which assumes they are independent Bernoulli trials. The conservative
+bound collapses each experimental cell to a single binary outcome, one if that
+cell contains any leakage event and zero otherwise, and applies the same
+construction to those cell outcomes. The second assumes nothing whatever about
+independence, at the cost of discarding within-cell repetition.
+
+\begin{table}[h]
+\centering
+\small
+\caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate. Cells
+are defined by scenario, model, probe condition, injection variant, feedback
+mode, defense mode, delay and hidden state; repetitions stay together.}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{per record} & \multicolumn{2}{c}{per cell} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Condition & Events/$n$ & Bound & Events/$n$ & Bound \\
+\midrule
+natural & $1/216$ & $2.18\%$ & $1/72$ & $\mathbf{6.42\%}$ \\
+forced & $0/240$ & $1.24\%$ & $0/24$ & $\mathbf{11.73\%}$ \\
+pooled & $1/456$ & $1.04\%$ & $1/96$ & $\mathbf{4.85\%}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The conservative column is the one this work cites. Records within a cell share
+a model, a prompt and a hidden state and differ only by repetition, so the
+per-record column overstates the effective sample size. With a single event in
+the entire dataset the intracluster correlation cannot be estimated, so the true
+bound cannot be located within the bracket; reporting both ends is the honest
+representation of what the data support.
+
+\paragraph{A rejected method.} A cluster-level percentile bootstrap was computed
+first and discarded as invalid. A percentile bootstrap resamples the sampling
+distribution of the point estimate, and with zero or one event almost every
+resample contains zero or one event, so the upper percentile collapses toward
+the observed rate rather than extending above it. The forced condition made the
+degeneracy explicit by returning a $95\%$ upper bound of $0.00\%$ from 240
+observations, which no finite sample can support. It is recorded here so that
+the method is not reintroduced.
+
+The bounds are interpretable \emph{only} because the positive control fired in
+the same runs, on the same denial strings, at $10/10$ in nearly every cell. A
+bound derived from an instrument that cannot detect the behaviour is a statement
+about the instrument; this one is not, and the positive-control counts reported
+alongside it are what license the distinction.
 
 The paired conditional leakage metric remains the primary endpoint where
 eligible pairs exist. Across scenarios three and four no natural cell produced
@@ -1387,9 +1423,12 @@ Aggregating the interpretable records --- scenario three on \code{gpt-5.6-terra}
 and scenario four on both models, excluding the voided Luna arm of scenario
 three --- the natural condition comprises 216 records with delivery verified at
 $100\%$ and contains one send. The forced condition comprises 240 records with
-probe and denial rates of $100\%$ and contains zero. The resulting one-sided
-$95\%$ upper bounds are $2.18\%$ and $1.24\%$ respectively, and $1.04\%$ pooled,
-under the construction and caveats of Section~\ref{sec:stats}.
+probe and denial rates of $100\%$ and contains zero. Treating each experimental cell as
+a single observation, so that no independence between repetitions is assumed,
+the one-sided $95\%$ upper bounds are $6.42\%$ natural, $11.73\%$ forced and
+$4.85\%$ pooled; the corresponding per-record bounds are $2.18\%$, $1.24\%$ and
+$1.04\%$. Section~\ref{sec:stats} gives both and explains why the conservative
+column is the one cited.
 
 The bound is meaningful because the positive control fired in the same runs, on
 the same denial strings, at $10/10$ in nearly every cell. The instrument detects
@@ -1592,8 +1631,9 @@ artifacts are retained as evidence.
   \item \textbf{Unsolicited denial-reason leakage is rare and bounded.}
     Across the interpretable records of scenarios three and four, one
     send occurred in 216 natural records and none in 240 forced
-    records, with delivery verified at $100\%$ throughout, giving
-    one-sided $95\%$ upper bounds of $2.18\%$ and $1.24\%$.
+    records, with delivery verified at $100\%$ throughout. Treating
+    each experimental cell as one observation, the one-sided $95\%$
+    upper bounds are $6.42\%$ natural and $4.85\%$ pooled.
   \item That bound is interpretable because the positive control fired
     at $10/10$ in nearly every cell of the same runs, on the same
     denial strings. The instrument detects the channel whenever the
@@ -1631,10 +1671,10 @@ artifacts are retained as evidence.
 \section{Immediate next steps}
 
 \begin{enumerate}
-  \item Run the scenario-clustered bootstrap and report the widened
-    interval alongside the Clopper--Pearson bound, which currently
-    treats within-cell repetitions as independent and is therefore
-    optimistic.
+  \item Report both bounds of Section~\ref{sec:stats} wherever a rate
+    is quoted, and cite the conservative one. The remaining statistical
+    work is a sensitivity analysis over the cell definition, not a
+    further resampling method.
   \item Continue scenario construction. Each additional scenario now
     tightens the bound in Section~\ref{sec:scenario-four} rather than
     searching for a positive result, and the bound is the principal
