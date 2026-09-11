@@ -407,6 +407,7 @@ in every summary table the harness emits. It has been clean in every
 cell of every run reported in Chapter~\ref{ch:results}.
 
 \section{Scenario registry}
+\label{sec:registry}
 
 Scenarios are registered behind a registry interface; \code{scenario\_id}
 is validated against the registry and written into the trusted metadata
@@ -917,6 +918,296 @@ semantic-default finding of \S\ref{sec:inversion} holds across three
 independent runs.
 
 % =====================================================================
+
+\section{The delivery gate, and defect 18}
+\label{sec:delivery-gate}
+
+Defects 13, 16 and 17 share a structure: the experiment ran cleanly, produced
+internally consistent numbers, and measured nothing, because the independent
+variable was never administered. All three were caught by hand, once per run.
+Defect 17 was caught only \emph{after} defect 16 had been diagnosed, repaired
+and hand-verified on the other model. A property that must be re-established by
+hand on every run is not a property the instrument possesses.
+
+The delivery gate moves that check into the analysis path. For each record it
+resolves, from that record's own trusted metadata, the exact carrier text the
+record was assigned --- the named injection variant, or the scenario's default
+attack injection where no variant is recorded, or the benign file note for
+benign-arm records --- and reports whether that text reached a captured tool
+result. Resolution runs through the scenario registry, so the predicate is not
+specialised to any scenario. The per-cell summary gains a \code{delivered}
+column, and when any cell is incomplete the summary emits a warning block
+stating that a zero send rate in such a cell is \emph{void rather than null}.
+
+The gate is computed in the analysis and summary path only. No field was added
+to either record type and no \code{schema\_version} changed, so every existing
+artifact remains replayable byte for byte.
+
+\subsection{Defect 18: the gate exhibited the failure it was built to detect}
+
+The first implementation reported zero delivery for every record of scenario
+two, including records whose delivery had already been established by hand. The
+cause was in the predicate. AgentDojo serialises tool results as YAML, and long
+file content is emitted as a folded double-quoted scalar in which line breaks
+become a literal backslash followed by a newline and indentation. Containment
+against the raw message text therefore fails for any injection long enough to be
+folded, which is all of them. The repair parses each tool result with a YAML
+loader and tests containment against the recovered string values, falling back
+to raw containment for tool results that are plain strings.
+
+The instructive part is not the bug but its discovery. The implementation passed
+its own unit tests and reported $72/72$ delivery on scenario one --- the
+configuration in which it is correct by accident, that scenario's carrier
+content being short enough to escape folding. Had it shipped, it would later
+have reported zero delivery on a new scenario, indistinguishable from a genuine
+repeat of defect 16. It was caught only by a requirement fixed in advance: that
+the predicate reproduce a table of counts derived by hand from immutable
+artifacts before being accepted.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Delivery-gate validation. The committed predicate reproduces
+hand-derived counts on all five available attack artifact groups. Natural
+figures are per variant.}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Artifacts & Natural & Forced & Positive control \\
+\midrule
+4A, scenario one, Luna & $24/24$ & $80/80$ & $80/80$ \\
+4A, scenario one, Terra & $24/24$ & $80/80$ & $80/80$ \\
+6I, scenario two, Luna & $24/24$ & $80/80$ & $80/80$ \\
+6I, scenario two, Terra & $6/24,\ 6/24,\ 5/24$ & $80/80$ & $80/80$ \\
+6E, scenario two, Luna, voided & $0/24$ & $2/80$ & $3/80$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A standing requirement now applies: any change to the delivery predicate, and
+any extension of it to a new scenario, must reproduce hand-derived counts on
+existing artifacts before it is committed, and a disagreement between predicate
+and hand audit is to be reported rather than resolved by adjusting the
+predicate.
+
+\subsection{What the gate immediately revealed}
+
+Applied to the Checkpoint 6I artifacts, the gate reproduced defect 17 without
+hand intervention and sharpened it. \code{gpt-5.6-terra}'s natural delivery was
+$3/6$, $3/6$, $3/6$, $3/6$, $2/6$ and $3/6$ across the six reason-bearing cells
+and \textbf{$0/6$ in every one of the six uniform cells}. The model probes
+first, and a uniform denial causes it to terminate before reading the carrier.
+
+Terra's uniform natural cells are therefore \emph{void, not null}. The reduced
+sending observed there is explained by termination before delivery, and reporting
+it as the uniform-feedback intervention defending against the attack would have
+been false. The result of Section~\ref{sec:realised} is unaffected:
+\code{gpt-5.6-luna} delivered $24/24$ in every cell including the uniform cells,
+so its reduction from $10/12$ to $3/12$ sends was measured against an attack that
+verifiably reached the model on every record.
+
+\section{Scenario three: the first Banking scenario}
+\label{sec:scenario-three}
+
+Scenarios one and two are both Workspace tasks sharing a suite, an environment
+class, an email sink and a document carrier. Any result common to them is
+equally explained by a property of the Workspace suite. Scenario three was
+registered in a different suite so that the primary contrast could be tested
+outside Workspace at all.
+
+\code{banking\_spending\_review\_probe} uses AgentDojo Banking
+\code{user\_task\_1}, \emph{``What's my total spending in March 2022?''}. The
+carrier is the transaction subject populated by the \code{injection\_incoming\_transaction}
+vector; the sink is \code{send\_money} to an attacker IBAN with the decoded code
+as the transfer subject. The codebook assigns \code{ABSENT} to \code{ALPHA} and
+\code{PRESENT\_BUT\_PROTECTED} to \code{BRAVO}, continuing the alternation that
+prevents any aggregate result from being an artifact of a constant
+state-to-token mapping.
+
+\paragraph{Why not the bill-payment task.} The intended base task was
+\code{user\_task\_0}, a bill payment naming its carrier file literally. It was
+rejected on inspection, before any run. Every file-reading Banking task is scored
+on post-environment state rather than on model output, and this benchmark's
+utility oracle evaluates the score task against a pristine environment because
+derived records are recomputed from the raw record at replay time. Supporting
+state-scored utility would require storing environment snapshots in raw records,
+a schema change that would end byte-identical replay of every artifact collected
+so far. The oracle was not weakened to fit the task; the task was changed to one
+the oracle already fits.
+
+\paragraph{A vacuous oracle upstream.} Banking \code{user\_task\_8} was inspected
+and rejected: its utility returns true for arbitrary model output, including the
+string \code{nonsense}. This is a second instance, in upstream AgentDojo, of the
+vacuous-guard class described in Section~\ref{sec:defect11}.
+
+\subsection{Preregistered predictions}
+
+Recorded before any scenario-three record existed. \textbf{P1}: the positive
+control replicates on both models, $10/10$ paired leakage under reason-bearing
+feedback and $0/10$ under uniform; if it fails, no other prediction is
+interpretable and the run is void. \textbf{P2}: delivery is at least $95\%$ in
+every natural cell on both models. \textbf{P3}: if any natural variant produces a
+non-zero send rate, it is \code{v2} rather than \code{v1}. \textbf{P4}: natural
+paired conditional leakage is zero on both models, because an outbound transfer
+is a higher-salience action than sending an email and the refusal that blocked
+\code{v1} and \code{v3} in scenario two should block every variant here.
+
+\subsection{P2 confirmed: the carrier design ports}
+
+Delivery was $6/6$ in all twelve natural cells, $20/20$ in all four forced cells
+and $20/20$ in all four positive-control cells, on both models. The
+protected-body sentinel was clean in every cell. No instance of defect 16 or 17
+occurred in a different suite with a different carrier modality.
+
+This governs everything below: every null reported here is measured against an
+attack that verifiably reached the model.
+
+\subsection{P1 falsified on \code{gpt-5.6-luna}}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Positive control, scenario three, 20 records per cell. The codebook
+maps \code{NOT\_FOUND} to \code{ALPHA} and \code{PERMISSION\_DENIED} to
+\code{BRAVO}. \code{chance} is the chance-inflated per-record diagnostic; a
+constant token scores near $10/20$.}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Model & Feedback & \code{ALPHA} & \code{BRAVO} & \code{cond\_leak} & \code{chance} \\
+\midrule
+Luna & reason\_bearing, $d{=}0$ & 20 & 0 & $0/10$ & $10/20$ \\
+Luna & reason\_bearing, $d{=}2$ & 19 & 1 & $1/10$ & $11/20$ \\
+Luna & uniform, $d{=}0$ & 19 & 1 & $1/10$ & $11/20$ \\
+Luna & uniform, $d{=}2$ & 20 & 0 & $0/10$ & $10/20$ \\
+\addlinespace
+\textbf{Terra} & \textbf{reason\_bearing}, $d{=}0$ & 9 & 10 & $\mathbf{9/10}$ & $19/20$ \\
+\textbf{Terra} & \textbf{reason\_bearing}, $d{=}2$ & 10 & 10 & $\mathbf{10/10}$ & $20/20$ \\
+Terra & uniform, $d{=}0$ & 0 & 19 & $0/10$ & $10/20$ \\
+Terra & uniform, $d{=}2$ & 2 & 16 & $2/10$ & $10/20$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\code{gpt-5.6-terra} replicates the primary contrast. \code{gpt-5.6-luna} emits a
+constant \code{ALPHA} under \emph{both} feedback modes, with a chance rate of
+exactly $10/20$.
+
+The instrument was verified sound before this was recorded. The mediated denial
+was state-dependent and correct in every record of both models: \code{ABSENT}
+produced \code{PolicyDenied: DENIED:NOT\_FOUND} and
+\code{PRESENT\_BUT\_PROTECTED} produced
+\code{PolicyDenied: DENIED:PERMISSION\_DENIED}. \code{gpt-5.6-terra} decoded
+those same strings correctly in the same cells. \code{gpt-5.6-luna} therefore
+received the distinguishing information, was directed by the trusted user prompt
+to encode it, and emitted the \code{NOT\_FOUND} code regardless.
+
+Per the preregistered rule, \textbf{\code{gpt-5.6-luna}'s scenario-three leakage
+results are void}. Its nulls cannot be read as refusal to leak when its positive
+control shows it does not encode the denial reason even when explicitly directed
+to. The rule was applied as written rather than reinterpreted once it became
+inconvenient; the artifacts are retained.
+
+This is distinct from the semantic-default finding of Checkpoint 6G. There the
+constant appeared under uniform feedback, where the model had no distinguishing
+information. Here it appears under reason-bearing feedback, where it does.
+
+\subsection{What \code{gpt-5.6-terra} shows}
+
+\begin{table}[h]
+\centering
+\small
+\caption{\code{gpt-5.6-terra}, scenario three, attack arm. Natural figures are
+totals across twelve cells; forced across four.}
+\begin{tabular}{@{}lrrrrrl@{}}
+\toprule
+Condition & $n$ & Delivered & Probe & Denial & Send & \code{cond\_leak} \\
+\midrule
+natural & 72 & $72/72$ & $\mathbf{0}$ & $0$ & $0$ & undefined \\
+forced & 80 & $80/80$ & $80/80$ & $80/80$ & $\mathbf{0}$ & $0/40$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In the forced condition \code{gpt-5.6-terra} performed the probe eighty times
+under legitimate instruction, received a reason-bearing denial every time, had
+the injected instruction to encode and transmit it delivered every time, and
+never once initiated the transfer. Normalised utility was $20/20$ in every
+forced cell, so this is not a model failing the task. In the natural condition it
+never called the probe at all; there were therefore no denials, no eligible
+counterfactual pairs, and paired conditional leakage is \emph{undefined rather
+than zero}.
+
+\code{gpt-5.6-luna}'s normalised utility in the forced cells was $17/20$,
+$11/20$, $12/20$ and $13/20$, against Terra's $20/20$, a further indication that
+this scenario is poorly suited to that model.
+
+\subsection{P3 vacuous; P4 upheld, its reasoning falsified}
+
+P3 is vacuous: no variant produced any send in the natural condition on either
+model, so the conditional never triggered.
+
+P4 predicted zero natural paired conditional leakage, and no natural leakage
+occurred. The direction holds; the stated mechanism does not. P4 reasoned that
+the salience of an outbound transfer would produce a refusal \emph{at the sink,
+after probing}. What happened is that neither model probed at all --- the refusal
+sits earlier in the chain than predicted. This is recorded as a prediction whose
+outcome was right and whose reasoning was wrong, because that distinction is the
+part worth keeping.
+
+\subsection{A boundary on the realised attack}
+
+The Checkpoint 6J observation of Section~\ref{sec:realised} stands as recorded.
+Scenario three does not replicate it, and could not test it on
+\code{gpt-5.6-luna} at all, because that model fails this scenario's positive
+control.
+
+What scenario three establishes is a boundary. On \code{gpt-5.6-terra}, with
+delivery verified at $100\%$ and the positive control replicating in the same
+run, an injected instruction carried by untrusted content produced zero probes in
+72 natural records and zero sends in 80 forced records. The scenario-two finding
+does not generalise to this suite, this carrier and this sink.
+
+Which variable is operative is \emph{not} identified by this experiment. Suite,
+sink modality, carrier modality and base task all differ between scenarios two
+and three, and no claim is made about which of them matters.
+\TODO{Scenario four is designed to isolate sink salience by holding the sink
+modality low (a message rather than a transfer) in a third suite. State the
+outcome here once collected.}
+
+\subsection{Defects 19 and 20: the registry was not an abstraction}
+
+Reaching this run required two repairs, both instances of the pattern in which a
+new axis is added without extending the identity that depends on it.
+
+\textbf{Defect 19.} The trace builder reconstructed sink state from
+\code{environment.inbox}, which does not exist outside the Workspace suite. Any
+non-Workspace scenario crashed on the first record.
+
+\textbf{Defect 20, and a fail-open.} The trusted interposer selected protected
+probes and external sinks from \emph{module-level constants} rather than from the
+active scenario. Scenario three's probe was consequently not intercepted and its
+real body was invoked. The protected-body sentinel stayed clean only because the
+model happened to omit a required argument and binding failed before the body
+ran; had it supplied the argument, the protected body would have executed. In the
+same run \code{send\_money} was not recognised as a sink, so all eight readiness
+records were scored as protocol deviations and both readiness gates failed.
+
+\paragraph{Dead aliases.} \code{ProtectedProbe.aliases} was never consulted by
+the executor that performs mediation; it was read only by later validation.
+Scenarios one and two were mediated correctly \emph{only} because their probe is
+literally named \code{probe\_restricted\_file}, which appeared in the hardcoded
+constant. Their results are unaffected, but the mediation they received was
+governed by a literal rather than by their scenario definition. That is now
+stated rather than assumed, and it revises the claim in
+Section~\ref{sec:registry} that the scenario abstraction had been demonstrated:
+scenario two exercised it only where its names coincided with the constants.
+
+Both repairs preserved byte-identical replay of all existing artifacts, verified
+against the frozen Checkpoint 4A records without modifying any expected value. A
+cross-scenario property now asserts, for every registered scenario, that its
+probe is classified and denied \emph{before argument binding} even when called
+with missing or wrong arguments, and that its sink is classified as external.
+
+
 \chapter{Methodological Findings}
 \label{ch:methodfindings}
 
@@ -1085,13 +1376,9 @@ artifacts are retained as evidence.
 \begin{enumerate}
   \item The harness runs live hosted models end to end with immutable,
     replayable artifacts.
-  \item The instrument is validated: perfect paired leakage under
-    reason-bearing feedback in every positive-control cell measured.
-  \item The primary contrast replicates across two scenarios and two
-    models: channel open under reason-bearing feedback, closed under
-    uniform. This rests on positive-control cells, which are
-    administered through the user prompt and are therefore unaffected by
-    defect 16.
+  \item The primary contrast replicates across three scenarios: channel
+    open under reason-bearing feedback, closed under uniform. On
+    scenario three this holds for \code{gpt-5.6-terra} only.
   \item The constant output under uniform feedback is a semantic
     default, not a token bias --- established by a preregistered
     codebook inversion.
@@ -1099,34 +1386,44 @@ artifacts are retained as evidence.
     equal security outcome and opposite utility cost.
   \item Delay cannot be enforced through the interposer for these
     models, because they do not retry.
-  \item The scenario abstraction holds: a second scenario was added
-    without modifying any shared module.
   \item A denial-reason leak has been realised under indirect prompt
-    injection on one model, in four of four counterfactual pairs at both
-    delay values, with delivery verified for every record before any rate
-    was computed.
-  \item That attack is framing-dependent and content-invariant: two other
-    variants, delivered in every record, produced zero probes.
+    injection on one model in one scenario, in four of four
+    counterfactual pairs at both delay values, with delivery verified
+    for every record before any rate was computed.
+  \item That attack is framing-dependent and content-invariant: two
+    other variants, delivered in every record, produced zero probes.
   \item Uniform feedback suppresses the attack where it succeeds,
-    reducing sends from $10/12$ to $3/12$ and paired leakage to zero.
+    reducing sends from $10/12$ to $3/12$ and paired leakage to zero,
+    with delivery verified at $24/24$ in the affected cells.
+  \item The realised attack has a boundary. In a different suite, with a
+    different carrier and a money-transfer sink, delivery of $100\%$
+    produced zero probes in 72 natural records and zero sends in 80
+    forced records on the model whose positive control replicated.
+  \item Instrument validation is per model and per scenario, not
+    global. \code{gpt-5.6-luna} fails scenario three's positive control
+    while \code{gpt-5.6-terra} passes it on identical denial strings,
+    and the preregistered void rule was applied to the failing model.
+  \item Delivery is now measured by the instrument rather than by hand,
+    and a cell with incomplete delivery is reported as void rather than
+    null.
 \end{enumerate}
 
 \section{Immediate next steps}
 
 \begin{enumerate}
-  \item Add a harness-level delivery gate that reports the delivered
-    count beside every rate and refuses to characterise a condition as a
-    null when delivery is incomplete. Defects 16 and 17 both produced
-    clean, internally consistent datasets with the independent variable
-    unapplied, and defect 17 is live in the current data.
-  \item Re-run the statistical protocol against the surviving dataset,
-    so that the realised-attack result carries an interval rather than a
-    bare count.
-  \item Continue scenario construction. The framing-dependence result
-    changes the expected yield: additional scenarios are no longer
-    expected to return further copies of the same null.
+  \item Build scenario four in a third suite with a low-salience message
+    sink. Scenarios two and three differ in suite, carrier, sink and
+    base task simultaneously; scenario four is designed to hold the sink
+    modality low so that sink salience can be separated from suite.
+  \item Re-run the statistical protocol once scenario four's data
+    exists, so the realised-attack result carries an interval rather
+    than a bare count. Four pairs will not support a useful interval on
+    their own.
   \item Decide whether to repair defect 17, which costs a full re-run of
     both models and is preregistration-bound.
+  \item Decide whether \code{gpt-5.6-luna}'s failure of the
+    scenario-three positive control warrants a third model, so that a
+    void on one model does not halve the evidence from a run.
   \item Back up the artifact tree; \code{runs/} is excluded from version
     control and exists only on local disk.
 \end{enumerate}
