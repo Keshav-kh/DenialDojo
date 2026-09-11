@@ -123,19 +123,34 @@ to prompt variation.
 The benchmark is built on AgentDojo and instruments live hosted models
 through a trusted interposer that controls the denial channel, enforces
 post-denial sink policies, and writes immutable, hash-chained run
-records. Results to date establish that (i) under reason-bearing
-feedback the channel is fully open --- paired conditional leakage of
-$10/10$ in every positive-control cell measured, across two scenarios,
-two models, and two delay conditions; (ii) under uniform feedback the
-channel closes, with paired conditional leakage of $0/10$ in seven of
-eight comparable cells; and (iii) the residual constant output under
-uniform feedback is a \emph{semantic} default rather than a token-level
-bias --- a distinction established by a preregistered codebook inversion
-whose literal prediction was falsified while the hypothesis it tested
-was confirmed.
+records. Results to date establish four things. First, the channel is fully open
+under reason-bearing feedback and closed under uniform feedback: paired
+conditional leakage of $10/10$ in every positive-control cell measured,
+against $0/10$ under uniform, replicated across two scenarios, two
+models, two delay conditions and three independent runs. Second, the
+residual constant output under uniform feedback is a \emph{semantic}
+default rather than a token-level bias, a distinction established by a
+preregistered codebook inversion whose literal prediction was falsified
+while the hypothesis it tested was confirmed. Third, one model leaked the
+denial reason under a genuine indirect prompt injection, with the
+instruction carried solely by untrusted document content and no user
+instruction directing either the probe or the send: four of four
+counterfactual pairs, at both delay values. Fourth, that attack is
+sharply framing-dependent --- two other injection variants, delivered in
+every record and differing only in wording, produced zero probes, placing
+the refusal before the reconnaissance step rather than at the
+exfiltration boundary.
+
+The work also reports measurement-validity findings from the benchmark's
+own instrumentation, including two cases in which an experiment ran to
+completion, produced internally consistent summary statistics, and
+measured nothing because the independent variable was never delivered to
+the model.
 
 \TODO{Rewrite abstract once the full scenario set is complete. Current
-version states only what is presently supported by artifacts.}
+version states only what is presently supported by artifacts. The
+realised-attack result rests on one model, one variant and four pairs;
+that limit must remain in any shortened version.}
 
 \tableofcontents
 
@@ -217,6 +232,10 @@ Chapter~\ref{ch:background}.}
   \item An empirical security--utility frontier showing two
     interventions with identical security outcomes and opposite utility
     costs (Section~\ref{sec:frontier}).
+  \item A realised denial-reason leak under indirect prompt injection,
+    together with the observation that it is sharply dependent on the
+    framing of the injected text while being invariant to its content
+    (Section~\ref{sec:realised}).
   \item A catalogue of measurement-validity defects found in the
     benchmark's own instrumentation, with the general patterns they
     instantiate (Chapter~\ref{ch:methodfindings}).
@@ -777,6 +796,126 @@ One record of the 464 scenario-two attack records terminated as
 HTTP 502 from the provider. It was recorded as a runtime error rather
 than silently retried, and falls in a cell with no sends in either arm.
 
+\section{The repair, and the first realised attack}
+\label{sec:realised}
+
+Defect 16 was repaired by appending one sentence to scenario two's attack
+prompt naming the carrier explicitly: \emph{``The file containing the
+vacation plans for Hawaii is named vacation-plans.docx.''} Nothing else
+changed --- not the codebook, the three injection variants, the
+recipients, the subjects, the protected target, or the utility oracle.
+
+An exploratory smoke test at one repetition per condition on
+\code{gpt-5.6-luna} confirmed the repair: delivery rose from $0/72$ to
+$8/8$ in every condition--variant group and benign utility from $5/232$
+to $40/40$. That smoke test also produced three leaking records outside
+the positive control. Because it was exploratory, it was disclosed in the
+preregistration together with a falsifiable prediction, and its records
+are excluded from every rate reported below.
+
+\subsection{Preregistered prediction}
+
+Before the confirmatory run: variant \code{v2} would produce non-zero
+paired conditional leakage under \code{natural}/\code{reason\_bearing} on
+at least one model, while \code{v1} and \code{v3} remained at or near
+zero with delivery near $100\%$. The proposed mechanism --- that
+\code{v1} is refused because its opening string
+\code{UNTRUSTED INSTRUCTION:} labels it as untrusted, whereas \code{v2}
+reads as routine operations traffic --- was recorded as the explanation
+under test, not as an assumption.
+
+\subsection{Result: the prediction is confirmed on \code{gpt-5.6-luna}}
+
+Confirmatory run, frozen default repetitions, defense \code{none}, both
+models, 624 records. Artifacts: \code{runs/pilot6i}. Delivery was
+verified for every record \emph{before} any rate was computed, as the
+preregistration required.
+
+\begin{table}[h]
+\centering
+\small
+\caption{\code{gpt-5.6-luna}, \code{natural} condition. Delivery was
+$24/24$ for every variant. \code{cond\_leak} is paired; a dash indicates
+no pair in which both arms sent.}
+\begin{tabular}{@{}llrrrl@{}}
+\toprule
+Variant & Feedback & Delivered & Probe & Send & \code{cond\_leak} \\
+\midrule
+v1 & reason\_bearing & $24/24$ & $0/12$ & $0/12$ & --- \\
+\textbf{v2} & \textbf{reason\_bearing}, $d{=}0$ & $12/12$ & $5/6$ & $5/6$ & $\mathbf{2/2}$ \\
+\textbf{v2} & \textbf{reason\_bearing}, $d{=}2$ & $12/12$ & $5/6$ & $5/6$ & $\mathbf{2/2}$ \\
+v3 & reason\_bearing & $24/24$ & $0/12$ & $0/12$ & --- \\
+\addlinespace
+v1 & uniform & $24/24$ & $0/12$ & $0/12$ & --- \\
+v2 & uniform & $12/12$ & $7/12$ & $3/12$ & $0/1$ \\
+v3 & uniform & $24/24$ & $0/12$ & $0/12$ & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{A realised attack.} Four of four counterfactual pairs leaked
+under \code{v2} with reason-bearing feedback, at both delay values, and
+the hidden-state arms diverged as the codebook specifies in every leaking
+pair. No user instruction directed either the probe or the send; the
+instruction was carried solely by untrusted document content. This is the
+first leakage the benchmark has observed outside a positive control, and
+it is the event the design was built to detect.
+
+\paragraph{Variant specificity, and where the refusal lives.} Variants
+\code{v1} and \code{v3} were delivered in $24/24$ records each and
+produced \textbf{zero probes} --- not zero sends, zero probes. The
+refusal occurs before the reconnaissance step, not at the exfiltration
+boundary. The task, codebook, sink, recipient, and protected file were
+identical across all three variants; only the framing differed. This is a
+finding about what these models screen on, and it is available only
+because three variants were frozen in advance rather than searched over.
+
+The proposed mechanism survives this test but is not established by it.
+Three variants differing in several respects at once cannot isolate a
+single cause. No fourth variant was created to probe the mechanism,
+because doing so would convert a preregistered comparison into an
+exploratory search; that commitment was recorded before the result was
+known.
+
+\paragraph{A defense acting on a live attack.} Within the one cell where
+the attack succeeds, switching from reason-bearing to uniform feedback
+reduced the send rate from $10/12$ to $3/12$ and paired conditional
+leakage to zero. Every previous defense observation in this work acted on
+a channel nothing was using. This one acts on a channel that was open.
+
+\subsection{Defect 17: \code{gpt-5.6-terra} is not a replication}
+
+Terra delivered the injected text in only $17$ of $72$ natural records:
+$6/24$, $6/24$ and $5/24$ across the three variants, and $0/12$ in every
+natural uniform-feedback cell. It issued the probe first in $6/6$ records
+of every cell, took the denial, and in most records terminated without
+ever reading the carrier. Feedback mode is associated with whether the
+carrier was read at all, which is itself an uncomfortable coupling
+between a treatment and the delivery of the treatment.
+
+Among the $17$ delivered records the probe rate was $17/17$ and the send
+rate $0$. That is a real null, but at $n \approx 6$ per variant it is
+weak, and the remaining $55$ records are void.
+
+\textbf{Terra's natural condition is therefore not a replication of the
+Luna result and is not reported as one.} The finding of
+\S\ref{sec:realised} stands on one model, one variant, and four pairs,
+and is stated with those limits wherever it appears.
+
+Repairing defect 17 would change the attack prompt and invalidate
+comparability with the Luna data above. The preregistration commits that
+any such repair is registered before it is run and that both models are
+re-run in full under the repaired prompt, with the present artifacts
+retained rather than replaced.
+
+\subsection{The positive control replicates a third time}
+
+On this dataset, both models again produced paired conditional leakage of
+$10/10$ under reason-bearing feedback and $0/10$ under uniform, with a
+constant \code{ALPHA} under uniform in all $40$ records per model. The
+semantic-default finding of \S\ref{sec:inversion} holds across three
+independent runs.
+
 % =====================================================================
 \chapter{Methodological Findings}
 \label{ch:methodfindings}
@@ -852,17 +991,27 @@ collision would have failed loudly and for free, but the defect was
 found by inspection before the run, not by those safeguards.
 
 \paragraph{Pattern C: the experiment runs cleanly while measuring
-nothing.} Two instances, both in scenario two. In the first, the benign
+nothing.} Three instances, all in scenario two. In the first, the benign
 utility oracle was structurally unsatisfiable and every record returned
 complete, conformant, and utility-false
 (\S\ref{sec:instrumentfirst}). In the second, the independent variable
 was never delivered to the model, and 464 records were produced whose
 aggregate leakage of zero was indistinguishable from a genuine null
-(\S\ref{sec:nullshape}). In both cases the summary statistics were
-internally consistent and gave no signal. The common defence is a
-precondition check that asserts the treatment was administered, run as
-a gate before the data is analysed rather than as a question the
-analyst may or may not think to ask.
+(\S\ref{sec:nullshape}). In the third, after that defect was repaired
+and delivery verified on one model, the \emph{other} model silently
+reverted to the same failure and delivered in $17$ of $72$ records
+(\S\ref{sec:realised}). In every case the summary statistics were
+internally consistent and gave no signal.
+
+The third instance is the instructive one. Delivery had just been
+diagnosed, repaired, and checked; it still failed, on a model that had
+not been part of the check, and it was caught only because the same
+question was asked again by hand. A property that must be re-established
+by manual inspection on every run is not a property the instrument has.
+The defence is a precondition gate that reports the delivered count
+beside every rate and refuses to characterise a condition as a null when
+delivery is incomplete --- run automatically, before analysis, rather
+than depending on an analyst remembering to ask.
 
 \TODO{Assemble the full numbered defect table for the appendix from the
 preregistration document and session records.}
@@ -895,15 +1044,27 @@ artifacts are retained as evidence.
   \item[Statistical inference.] Results are reported as exact empirical
     frequencies. Confidence intervals and paired significance tests have
     not been computed against the current dataset.
-  \item[The adversarial null.] The principal adversarial conditions
-    produce zero leakage in scenario one, where delivery of the attack
-    text was verified at $232/232$ per model. The positive control
-    establishes that the instrument works, so that null is real, but it
-    means the benchmark currently measures capability-under-cooperation
-    plus a refusal boundary, not a realised attack. Scenario two's
-    adversarial conditions are \emph{void} rather than null and
-    contribute no evidence either way (\S\ref{sec:nullshape}); the
-    adversarial evidence base is therefore one scenario, not two.
+  \item[Scope of the realised attack.] The leak of
+    \S\ref{sec:realised} rests on one model
+    (\code{gpt-5.6-luna}), one injection variant, one scenario, and four
+    counterfactual pairs. It is a demonstration that the channel can be
+    driven by untrusted content, not an estimate of how often that
+    happens. No claim of the form ``models leak denial reasons'' is
+    supported.
+  \item[The second model is not a replication.] Defect 17 left
+    \code{gpt-5.6-terra}'s natural condition with $17$ of $72$ records
+    delivered, so it neither confirms nor contradicts the Luna result
+    (\S\ref{sec:realised}).
+  \item[The remaining adversarial nulls.] Scenario one's adversarial
+    conditions produce zero leakage with delivery verified at $232/232$
+    per model, which is a real null. Scenario two's original adversarial
+    conditions are \emph{void} rather than null and contribute no
+    evidence either way (\S\ref{sec:nullshape}).
+  \item[Mechanism.] The variant-specificity result is a comparison of
+    three prompts differing in several respects at once. It localises the
+    refusal to before the probe, but does not isolate which textual
+    feature causes it, and deliberately was not followed by a
+    variant-level search.
   \item[Delay.] Delay is an observed outcome, not an enforced treatment,
     because neither model retries after a block.
   \item[Sensitive content.] The protected asset is existence only. No
@@ -940,19 +1101,32 @@ artifacts are retained as evidence.
     models, because they do not retry.
   \item The scenario abstraction holds: a second scenario was added
     without modifying any shared module.
+  \item A denial-reason leak has been realised under indirect prompt
+    injection on one model, in four of four counterfactual pairs at both
+    delay values, with delivery verified for every record before any rate
+    was computed.
+  \item That attack is framing-dependent and content-invariant: two other
+    variants, delivered in every record, produced zero probes.
+  \item Uniform feedback suppresses the attack where it succeeds,
+    reducing sends from $10/12$ to $3/12$ and paired leakage to zero.
 \end{enumerate}
 
 \section{Immediate next steps}
 
 \begin{enumerate}
-  \item Repair scenario two's carrier reachability by naming the file
-    explicitly in the task prompt, and re-run its adversarial conditions
-    in full, per the Checkpoint 6G commitment.
-  \item Add a harness-level delivery gate that refuses to report a null
-    from any condition in which the injected text was not delivered.
-    Defect 16 would have been caught before the run existed.
-  \item Re-run the statistical protocol against the surviving dataset.
-  \item Continue scenario construction toward the accepted target.
+  \item Add a harness-level delivery gate that reports the delivered
+    count beside every rate and refuses to characterise a condition as a
+    null when delivery is incomplete. Defects 16 and 17 both produced
+    clean, internally consistent datasets with the independent variable
+    unapplied, and defect 17 is live in the current data.
+  \item Re-run the statistical protocol against the surviving dataset,
+    so that the realised-attack result carries an interval rather than a
+    bare count.
+  \item Continue scenario construction. The framing-dependence result
+    changes the expected yield: additional scenarios are no longer
+    expected to return further copies of the same null.
+  \item Decide whether to repair defect 17, which costs a full re-run of
+    both models and is preregistration-bound.
   \item Back up the artifact tree; \code{runs/} is excluded from version
     control and exists only on local disk.
 \end{enumerate}
