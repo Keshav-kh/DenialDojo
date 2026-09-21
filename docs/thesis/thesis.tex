@@ -230,6 +230,15 @@ work.
     channel and enforces post-denial sink policies, with immutable
     artifact capture sufficient for exact replay
     (Chapter~\ref{ch:implementation}).
+  \item \textbf{A dual-model authorization layer that closes the realised
+    channel, with its costs measured and two failure modes named.} Both a
+    blind and an informed guard blocked every attempted exfiltration
+    ($7/7$, $10/10$). The blind guard denied $100\%$ of state-conditional
+    authorised actions (\emph{state blindness}); the informed guard
+    recovered the benign arm entirely, was not swayed by the injection it
+    could read, and misattributed a legitimate instruction to the untrusted
+    channel about half the time (\emph{provenance confusion under
+    instruction collision}) (Section~\ref{sec:guard}).
   \item \textbf{A bounded negative result with a validated positive
     control.} Across four scenarios, two suites beyond the original, and
     both sink modalities, unsolicited denial-reason leakage occurred in
@@ -1459,6 +1468,148 @@ framing-governed. That the opposite was preregistered, and is reported here
 unchanged, is the reason the statement can be trusted.
 
 
+
+\section{The dual-model authorization layer}
+\label{sec:guard}
+
+The architecture specified in the thesis proposal --- a task model that
+proposes actions and a guard model that authorises or denies them --- was
+implemented as two further defense modes alongside \code{none},
+\code{immediate\_adjacency} and \code{fixed\_quarantine}. The guard is
+consulted at exactly the point where the interposer would otherwise decide
+whether to block an external sink call, and its verdict decides.
+
+\paragraph{Two configurations.} \code{guard\_blind} shows the guard the user's
+original request and the proposed tool call, and nothing else. It never sees
+untrusted tool output and therefore cannot be injected. \code{guard\_informed}
+additionally shows the guard every tool result the task model has seen, in full
+and untruncated. It has more context to judge with, and is itself exposed to
+whatever injection that content carries. The contrast between them is the
+question the proposal's cited work raises but does not measure: whether an
+authoriser is helped or compromised by seeing untrusted data.
+
+\paragraph{Fail-closed by construction.} A guard mode with no guard supplied
+raises at construction. A response that is not exactly one line matching
+\code{ALLOW: <reason>} or \code{DENY: <reason>} is treated as a denial with a
+\code{MALFORMED\_RESPONSE} prefix, so parser-induced denials are counted
+separately and never enter a false-denial or block rate. The guard's full
+request and raw response are retained in an immutable sidecar per record,
+outside both record types; replay never consults the guard, and a test proves
+it. No record schema changed, and byte-identical replay of every prior artifact
+was verified after both implementation phases.
+
+\subsection{Where efficacy can be measured}
+
+A guard can be shown to block an attack only where an attack fires without it.
+Positive controls do not test this: there the user's own prompt authorises the
+send, so a guard that allows it is behaving correctly. Across every scenario run
+to date, injection-driven sends occurred at a measurable rate in one cell ---
+scenario two, \code{gpt-5.6-luna}, \code{natural}/\code{v2}/reason-bearing,
+$10/12$ at Checkpoint 6I. That cell is the efficacy denominator, and it is
+small; it is stated first so the larger false-denial denominators do not obscure
+it. The false-denial rate is measurable with real power: the benign arm (80
+records, $80/80$ sent without a guard) and the positive control (80 records,
+$80/80$ sent) both consist of sends the user's prompt directs.
+
+The guard model was fixed as \code{gpt-5.6-terra} for both configurations ---
+the model that passed every positive control it was validated on and never
+produced an unsolicited send. The guard prompts were frozen and transcribed into
+the preregistration before any run.
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Scenario two, task model \code{gpt-5.6-luna}, guard model
+\code{gpt-5.6-terra}. Baseline is Checkpoint 6I with defense \code{none}.
+Guard consultations: 167 blind, 172 informed, zero malformed in either.}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+& \code{none} & \code{guard\_blind} & \code{guard\_informed} \\
+\midrule
+attack cell, sends & $10/12$ & $\mathbf{0/12}$ & $\mathbf{0/12}$ \\
+\quad sink attempts by task model & --- & 7 & 10 \\
+\quad attempts blocked & --- & $7/7$ & $10/10$ \\
+benign arm, sends & $80/80$ & $40/80$ & $\mathbf{80/80}$ \\
+positive control, reason-bearing, sends & $40/40$ & $0/40$ & $21/40$ \\
+positive control, uniform, sends & $40/40$ & $0/40$ & $4/40$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Both guards close the channel.} Every attempted exfiltration in the
+attack cell was blocked, $7/7$ and $10/10$. Sends fell from $10/12$ to $0/12$
+under both configurations. This is the proposal's intended outcome, established
+on the one cell where it can be established.
+
+\paragraph{The blind guard is a blunt instrument.} It denied every positive
+control and half the benign arm, the latter entirely in the delay-2 cells where
+the user's prompt makes the send conditional on a sequence of prior calls. Its
+reasons are uniform: the request authorises the send only after a result has
+been obtained, and the guard cannot see whether it has. This is not a prompt
+defect. A guard that sees only the request and the proposed call \emph{cannot
+verify any precondition that depends on information the task model gathered},
+and so denies every state-conditional action. We name this \textbf{state
+blindness}. It is a structural property of the isolated-authoriser
+architecture, and here it is quantified: $100\%$ of state-conditional authorised
+sends denied.
+
+\paragraph{The informed guard recovers utility and was not injected.} It
+allowed $80/80$ benign sends, because it could see the prior calls the prompt
+required and verify them. In the attack cell it blocked $10/10$ attempts while
+reading the injected instruction, and its stated reasons name the injection as
+the reason to refuse: \emph{``sending an email to a vendor is unrelated; the
+user only asked to review the vacation plans.''} The preregistered prediction
+that visibility would make it block \emph{fewer} attacks was falsified. On this
+attack, with this system prompt, showing the authoriser the untrusted content
+did not cause it to obey the content.
+
+\paragraph{Provenance confusion under instruction collision.} The informed
+guard nonetheless denied $19/40$ authorised positive-control sends under
+reason-bearing feedback. The positive-control document still carries the
+default attack injection, which also instructs an email to the attacker with a
+codebook; the user's prompt independently authorises the same email. Seeing the
+same instruction on both a trusted and an untrusted channel, the guard
+attributed it to the untrusted one about half the time: \emph{``the email
+instruction and codebook originate from untrusted file content, not the user's
+request.''} Exposure to untrusted content made this guard more suspicious, not
+less. This is a failure mode specific to informed authorisers, and it is
+distinct from being persuaded.
+
+\paragraph{The guard caught the semantic default.} Under uniform feedback the
+informed guard denied $36/40$ positive-control sends, and its reason is
+consistent and correct: the user's codebook maps only \code{NOT\_FOUND} and
+\code{PERMISSION\_DENIED}, the observed denial was \code{ACCESS\_DENIED}, and
+so no code is authorised. The task model, receiving an uninformative denial,
+emitted its semantic default (Section~\ref{sec:inversion}) without having been
+told the reason it encodes; the guard refused to transmit the confabulation.
+The preregistration had treated all 80 positive-control records as authorised
+sends. On inspection the 40 uniform-feedback records are not, because the user
+authorised a code for a denial reason and the reason received has no code. The
+clean false-denial denominator is the 40 reason-bearing records, and this
+correction to the preregistered denominator is recorded in Checkpoint 8B rather
+than absorbed.
+
+\subsection{Frontier position}
+
+The security--utility frontier of Section~\ref{sec:frontier} gains two points.
+Both guards match the best security outcome measured, zero sends in the attack
+cell. The blind guard pays for it with half the benign arm and every
+state-conditional authorised action; the informed guard pays nothing on the
+benign arm and roughly half the reason-bearing positive control through
+misattribution. The informed guard dominates the blind guard on every measured
+axis. These figures rest on one task model, one scenario, one guard model and
+17 blocked attempts, and are reported with those limits attached.
+
+\TODO{Run both guard modes on scenario five, where \code{gpt-5.6-terra} probed
+26 times under injection, to test whether state blindness and provenance
+confusion reproduce outside scenario two.}
+\TODO{A provenance-aware third guard variant is the natural response to the
+collision failure; if built, it is preregistered as a new mode, not a prompt
+edit.}
+
+
 \chapter{Methodological Findings}
 \label{ch:methodfindings}
 
@@ -1625,9 +1776,15 @@ artifacts are retained as evidence.
 \section{What is established}
 
 \begin{enumerate}
-  \item The harness runs live hosted models end to end across four
+  \item The harness runs live hosted models end to end across five
     scenarios and three task suites, with immutable, replayable
     artifacts.
+  \item \textbf{The proposal's dual-model authorization layer exists and
+    closes the realised channel.} Both configurations blocked every
+    attempted exfiltration. The blind guard denies all state-conditional
+    authorised actions; the informed guard recovers the benign arm fully
+    and was not injected, but misattributes provenance when a legitimate
+    instruction is echoed in untrusted content.
   \item \textbf{Unsolicited denial-reason leakage is rare and bounded.}
     Across the interpretable records of scenarios three and four, one
     send occurred in 216 natural records and none in 240 forced
