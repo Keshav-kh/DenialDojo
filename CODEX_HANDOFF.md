@@ -1,5 +1,37 @@
 # DenialDojo — Complete Codex Handoff
 
+> ## CURRENT STATE — 2026-09-25 (supersedes every status and next-step statement below)
+>
+> **Scope is frozen by the thesis supervisor (Dr. Suman Saha, email 2026-09-23).**
+> Do not propose or implement anything outside it.
+>
+> - **Seven scenarios total.** Five are implemented and run (S1-S5). Exactly two
+>   remain: S6, a Workspace **calendar-event carrier** scenario built on
+>   `user_task_3`, and S7, a Workspace **received-email carrier** scenario built
+>   on `user_task_14`. After S6 and S7 are run, **experimentation stops** and the
+>   work moves to writing.
+> - **Two models only:** `gpt-5.6-luna` and `gpt-5.6-terra`. No third model.
+> - **No new guard configuration and no new experiment.** The dual-model guard
+>   (`guard_blind`, `guard_informed`) is implemented and evaluated (Checkpoints
+>   8A-8B). A provenance-aware guard variant is explicitly out of scope.
+> - **The Causal Residue gate below is not being pursued.** Ignore the
+>   Checkpoint 5 instructions in this file.
+> - **Statistical claim:** the conservative cell-level bound is the main claim;
+>   per-record bounds are reported only as the optimistic end of a bracket
+>   (`analysis/leakage_bounds.py`).
+> - **Authoritative record of what has been done:** `docs/preregistration.md`
+>   (Checkpoints through 8B) and `docs/thesis/thesis.tex`. Where this file's
+>   later sections disagree with them, they are stale.
+> - **Scenario eligibility:** only 18 of 97 AgentDojo tasks can host a scenario;
+>   see `analysis/task_eligibility.py` and `docs/thesis/eligibility_summary.tex`.
+>
+> Paid API use is approved (budget $400+, time is the only constraint). Every
+> scenario still requires: registry-driven mediation (no hardcoded tool names),
+> the cross-scenario property tests passing, byte-identical replay of existing
+> artifacts, no record schema change, and a preregistration entry written
+> before its first run.
+
+
 **Student:** Keshav Khandelwal  
 **Working thesis title:** *DenialDojo: A Counterfactual Benchmark for Denial-Feedback Leakage in Tool-Calling LLM Agents*  
 **Handoff date:** August 26, 2026  
