@@ -13,8 +13,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Scenario,
     [Parameter(Mandatory = $true)][string]$SmokeRoot,
     [Parameter(Mandatory = $true)][string]$FinalRoot,
-    [string[]]$Models = @("gpt-5.6-luna", "gpt-5.6-terra"),
-    [string]$SmokeModel = "gpt-5.6-luna"
+    [string[]]$Models = @("gpt-5.6-luna", "gpt-5.6-terra")
 )
 
 $Stamp  = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -65,16 +64,20 @@ foreach ($model in $Models) {
     Ensure-Readiness $model
 }
 
-Say "exploratory smoke run, $SmokeModel, 1 repetition per cell"
-py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
-    --model $SmokeModel --scenario $Scenario `
-    --readiness-summary (Readiness-Summary $SmokeModel) --output-root $SmokeRoot `
-    --natural-repetitions 1 --forced-repetitions 1 --positive-control-repetitions 1
-if ($LASTEXITCODE -ne 0) { Fail "smoke run failed (exit $LASTEXITCODE)" }
+# Every model is smoked and gated, not only one. Checkpoint 8D: gating only gpt-5.6-luna let a
+# scenario whose carrier gpt-5.6-terra never reached proceed to a full confirmatory run.
+foreach ($model in $Models) {
+    Say "exploratory smoke run, $model, 1 repetition per cell"
+    py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
+        --model $model --scenario $Scenario `
+        --readiness-summary (Readiness-Summary $model) --output-root $SmokeRoot `
+        --natural-repetitions 1 --forced-repetitions 1 --positive-control-repetitions 1
+    if ($LASTEXITCODE -ne 0) { Fail "smoke run failed for $model (exit $LASTEXITCODE)" }
 
-Say "smoke gate"
-py -3.14 -m uv run python analysis/smoke_gate.py --model $SmokeModel --scenario $Scenario --output-root $SmokeRoot
-if ($LASTEXITCODE -ne 0) { Fail "smoke gate failed; confirmatory runs were NOT started" }
+    Say "smoke gate, $model"
+    py -3.14 -m uv run python analysis/smoke_gate.py --model $model --scenario $Scenario --output-root $SmokeRoot
+    if ($LASTEXITCODE -ne 0) { Fail "smoke gate failed for $model; confirmatory runs were NOT started" }
+}
 
 foreach ($model in $Models) {
     Say "confirmatory run, $model, 232 attack + 80 benign"

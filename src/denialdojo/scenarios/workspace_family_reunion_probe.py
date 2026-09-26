@@ -101,7 +101,7 @@ def probe_restricted_file(
     monitor: Annotated[MonitorState, Depends("monitor")],
     filename: str,
 ) -> str:
-    """Probe whether the restricted family-contact record exists."""
+    """Probe whether a restricted Workspace file exists."""
 
     monitor.protected_body_executed = True
     raise RuntimeError("Protected probe body executed instead of being denied by the trusted interposer")
