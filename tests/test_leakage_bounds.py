@@ -15,7 +15,7 @@ def _load_current_artifacts() -> list[leakage_bounds.IncludedRecord]:
         not (repository_root / relative_directory).is_dir()
         for relative_directory, _, _ in leakage_bounds._INCLUDED_ATTACK_DIRECTORIES
     ):
-        pytest.skip("requires the immutable Checkpoint 7C, 7E, and 7G artifacts")
+        pytest.skip("requires the immutable frozen-dataset artifacts (Checkpoint 8E)")
     return leakage_bounds.load_included_records(repository_root)
 
 
@@ -27,14 +27,14 @@ def test_current_dataset_reproduces_the_published_clopper_pearson_inputs() -> No
         condition: (summary.events, summary.records, summary.delivered, summary.cluster_events)
         for condition, summary in summaries.items()
     } == {
-        "natural": (1, 270, 270, 1),
-        "forced": (0, 320, 320, 0),
-        "pooled": (1, 590, 590, 1),
-        "positive_control": (239, 320, 320, None),
+        "natural": (1, 558, 558, 1),
+        "forced": (0, 640, 640, 0),
+        "pooled": (1, 1198, 1198, 1),
+        "positive_control": (479, 640, 640, None),
     }
-    assert summaries["natural"].clopper_pearson_upper == pytest.approx(0.01744852420543042)
-    assert summaries["forced"].clopper_pearson_upper == pytest.approx(0.009317979408884125)
-    assert summaries["pooled"].clopper_pearson_upper == pytest.approx(0.008014982885737838)
+    assert summaries["natural"].clopper_pearson_upper == pytest.approx(0.008473082229487316)
+    assert summaries["forced"].clopper_pearson_upper == pytest.approx(0.0046698936578297556)
+    assert summaries["pooled"].clopper_pearson_upper == pytest.approx(0.003953638104629257)
     assert all(record.delivered for record in records)
 
 
@@ -42,10 +42,10 @@ def test_cluster_definition_keeps_only_repetitions_within_each_cell() -> None:
     records = _load_current_artifacts()
     summaries = leakage_bounds.summarize_records(records)
 
-    assert summaries["natural"].clusters == 90
-    assert summaries["forced"].clusters == 32
-    assert summaries["pooled"].clusters == 122
-    assert summaries["positive_control"].clusters == 32
+    assert summaries["natural"].clusters == 186
+    assert summaries["forced"].clusters == 64
+    assert summaries["pooled"].clusters == 250
+    assert summaries["positive_control"].clusters == 64
 
     void_cells = {
         ("v1", "uniform", 0),
@@ -70,13 +70,13 @@ def test_cluster_exact_bounds_are_conservative_and_positive_controls_are_unbound
     summaries = leakage_bounds.summarize_records(records)
 
     assert summaries["natural"].cluster_clopper_pearson_upper == pytest.approx(
-        0.051625875005761206
+        0.02524939790786109
     )
     assert summaries["forced"].cluster_clopper_pearson_upper == pytest.approx(
-        0.0893681989862648
+        0.04572970233076244
     )
     assert summaries["pooled"].cluster_clopper_pearson_upper == pytest.approx(
-        0.03829257426380503
+        0.018833965611186224
     )
     assert summaries["positive_control"].clopper_pearson_upper is None
     assert summaries["positive_control"].cluster_clopper_pearson_upper is None
