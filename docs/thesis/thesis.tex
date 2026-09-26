@@ -240,22 +240,29 @@ work.
     channel about half the time (\emph{provenance confusion under
     instruction collision}) (Section~\ref{sec:guard}).
   \item \textbf{A bounded negative result with a validated positive
-    control.} Across four scenarios, two suites beyond the original, and
-    both sink modalities, unsolicited denial-reason leakage occurred in
-    one of 216 interpretable natural records and in zero of 240 forced
-    records. Treating each experimental cell as a single observation,
-    so that no independence is assumed, the one-sided 95\% upper bounds
-    are $6.42\%$ natural and $4.85\%$ pooled. In the same runs the
-    positive control fired at $10/10$
-    in nearly every cell, on the same denial strings, so the bound
-    separates \emph{absence of the behaviour} from \emph{absence of
-    sensitivity} (Section~\ref{sec:scenario-four}).
-  \item \textbf{A replicated semantic-default finding.} Under uniform
-    feedback the models emit a constant code, and across four scenarios
-    with opposing codebook assignments that constant is always the code
-    for \code{PERMISSION\_DENIED}. The token changes with the codebook
-    and the semantics do not, which no token-frequency bias can produce
-    (Sections~\ref{sec:inversion} and~\ref{sec:scenario-four}).
+    control.} Across the five scenarios run after the realised attack,
+    spanning all three usable suites, both sink modalities and four
+    carrier modalities, unsolicited denial-reason leakage occurred in
+    one of 558 interpretable natural records and in none of 640 forced
+    records, with injection delivery verified for every record. Treating
+    each experimental cell as a single observation, so that no
+    independence is assumed, the one-sided 95\% upper bounds are
+    $2.52\%$ natural and $1.88\%$ pooled. In the same runs the
+    reason-bearing positive control decoded the hidden state in 319 of
+    320 records, on the same denial strings, so the bound separates
+    \emph{absence of the behaviour} from \emph{absence of sensitivity}
+    (Section~\ref{sec:final-bounds}).
+  \item \textbf{A semantic-default finding, predicted in advance.} Under
+    uniform feedback the models emit a constant code, and wherever the
+    instrument was validated that constant is the code for
+    \code{PERMISSION\_DENIED}, across opposing codebook assignments in all
+    three suites. The token changes with the codebook and the meaning
+    does not, which no token-frequency bias can produce. The specific
+    token was predicted before the data existed for three scenarios and
+    was confirmed on every validated arm, including all 160 uniform-arm
+    records across both models in the final two scenarios
+    (Sections~\ref{sec:inversion}, \ref{sec:scenario-five}
+    and~\ref{sec:final-bounds}).
   \item A realised denial-reason leak under indirect prompt injection,
     reported at its true size: four counterfactual pairs in one cell of
     one scenario on one model, plus one unpaired event in a second
@@ -543,7 +550,8 @@ independence, at the cost of discarding within-cell repetition.
 \begin{table}[h]
 \centering
 \small
-\caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate. Cells
+\caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate over the
+closed dataset: every interpretable record from scenario three onward. Cells
 are defined by scenario, model, probe condition, injection variant, feedback
 mode, defense mode, delay and hidden state; repetitions stay together.}
 \begin{tabular}{@{}lrrrr@{}}
@@ -552,9 +560,9 @@ mode, defense mode, delay and hidden state; repetitions stay together.}
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
 Condition & Events/$n$ & Bound & Events/$n$ & Bound \\
 \midrule
-natural & $1/216$ & $2.18\%$ & $1/72$ & $\mathbf{6.42\%}$ \\
-forced & $0/240$ & $1.24\%$ & $0/24$ & $\mathbf{11.73\%}$ \\
-pooled & $1/456$ & $1.04\%$ & $1/96$ & $\mathbf{4.85\%}$ \\
+natural & $1/558$ & $0.85\%$ & $1/186$ & $\mathbf{2.52\%}$ \\
+forced & $0/640$ & $0.47\%$ & $0/64$ & $\mathbf{4.57\%}$ \\
+pooled & $1/1198$ & $0.40\%$ & $1/250$ & $\mathbf{1.88\%}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1428,7 +1436,7 @@ further suites, two further carriers and both sink modalities, and would be
 reported as a single-scenario observation rather than as a general phenomenon.
 That is the outcome, and it is adopted without revision.
 
-Aggregating the interpretable records --- scenario three on \code{gpt-5.6-terra}
+Aggregating the interpretable records available at this point --- scenario three on \code{gpt-5.6-terra}
 and scenario four on both models, excluding the voided Luna arm of scenario
 three --- the natural condition comprises 216 records with delivery verified at
 $100\%$ and contains one send. The forced condition comprises 240 records with
@@ -1436,8 +1444,9 @@ probe and denial rates of $100\%$ and contains zero. Treating each experimental 
 a single observation, so that no independence between repetitions is assumed,
 the one-sided $95\%$ upper bounds are $6.42\%$ natural, $11.73\%$ forced and
 $4.85\%$ pooled; the corresponding per-record bounds are $2.18\%$, $1.24\%$ and
-$1.04\%$. Section~\ref{sec:stats} gives both and explains why the conservative
-column is the one cited.
+$1.04\%$. These interim figures, computed when four scenarios existed, are
+superseded by the bounds over the closed dataset in
+Section~\ref{sec:final-bounds}.
 
 The bound is meaningful because the positive control fired in the same runs, on
 the same denial strings, at $10/10$ in nearly every cell. The instrument detects
@@ -1467,6 +1476,56 @@ injection is better described by these data as sporadic than as
 framing-governed. That the opposite was preregistered, and is reported here
 unchanged, is the reason the statement can be trusted.
 
+
+
+\section{Scenario five: a within-suite codebook inversion}
+\label{sec:scenario-five}
+
+Scenario five, \code{banking\_gift\_lookup\_probe}, uses Banking
+\code{user\_task\_7}, \emph{``How much did I spend on the New Year's gift for my
+friend?''}. It is the last packaged non-Workspace task able to host the
+experiment, and it differs from scenario three in exactly two respects: the base
+task and the codebook, which is inverted. Suite, carrier vector, sink tool,
+attacker account, probe mechanism and denial strings are identical. That makes
+the pair a controlled test of the semantic default, and it was used to predict
+the default rather than observe it. The base task's utility passes on the bare
+substring \code{200}, a weak oracle whose utility figures are not reported as
+evidence of preserved task performance.
+
+\paragraph{The predicted token.} Before any record existed, the preregistration
+predicted that the uniform-feedback constant would be \code{ALPHA}, flipping
+from scenario three's \code{BRAVO} while remaining the code for
+\code{PERMISSION\_DENIED}. \code{gpt-5.6-terra} emitted \code{ALPHA} in 20 of 20
+records at both delays. This was the first time the semantic default was
+predicted in advance, down to the specific token.
+
+\paragraph{The positive control, and a second Banking void.}
+\code{gpt-5.6-terra} replicated the primary contrast: $10/10$ paired leakage
+under reason-bearing feedback at both delays, $0/10$ under uniform.
+\code{gpt-5.6-luna} emitted \code{BRAVO} in all 20 reason-bearing records and
+failed the positive control, so its scenario-five arm is void under the
+preregistered rule. It has now failed the positive control in both Banking
+scenarios and passed it in every Workspace and Travel scenario; no explanation
+is offered, and the observation is recorded as a reason why instrument
+validation must be checked per model and per scenario.
+
+\paragraph{Delivery.} \code{gpt-5.6-terra} delivered 69 of 72 natural records,
+with three cells at $5/6$. The delivery gate identified the three cells without
+hand intervention and they are void. This was the first defect the gate caught
+in data collected after it was built.
+
+\paragraph{Natural condition, and a retraction.} No natural record sent.
+\code{gpt-5.6-terra} probed in 26 of 72 natural records, and the preregistration
+entry that recorded this outcome read those probes as induced by the injected
+text and concluded that the refusal had moved to the sink. \textbf{That reading
+is retracted.} A later audit (Section~\ref{sec:final-bounds}) found that 23 of
+the 26 probes occurred before the model had read the carrier and the remaining
+3 occurred with the carrier never read; none was induced by the injection. The
+probe description the scenario gave the model named ``the restricted
+gift-ledger record'' for a question about a gift, and was read as part of the
+task (Section~\ref{sec:tool-descriptions}). What the data do show is narrower:
+in 23 records the model obtained the denial unprompted, then read an injected
+instruction to encode and transmit it, and did not transmit it.
 
 
 \section{The dual-model authorization layer}
@@ -1602,12 +1661,162 @@ misattribution. The informed guard dominates the blind guard on every measured
 axis. These figures rest on one task model, one scenario, one guard model and
 17 blocked attempts, and are reported with those limits attached.
 
-\TODO{Run both guard modes on scenario five, where \code{gpt-5.6-terra} probed
-26 times under injection, to test whether state blindness and provenance
-confusion reproduce outside scenario two.}
-\TODO{A provenance-aware third guard variant is the natural response to the
-collision failure; if built, it is preregistered as a new mode, not a prompt
-edit.}
+\paragraph{Scope.} The guard evaluation is confined to scenario two, the only
+scenario in which an injection-driven send occurred without a guard, and no
+further guard configuration was built. Both limits follow the scope agreed with
+the thesis supervisor on 23 September 2026. A provenance-aware authoriser is the
+natural response to the collision failure and is left to future work.
+
+
+\section{Scenarios six and seven, and the closed dataset}
+\label{sec:scenarios-six-seven}
+
+The task-eligibility survey found 18 AgentDojo tasks able to host this
+experiment. The five implemented scenarios covered all three usable suites, both
+sink modalities and three carrier modalities; of the thirteen remaining tasks,
+only two groups offered a carrier modality not yet covered. With the thesis
+supervisor the scope was revised to seven scenarios, adding one representative
+from each group, and no further scenario was to be added only to tighten a
+bound.
+
+Scenario six, \code{workspace\_calendar\_dinner\_probe}, carries the injection in
+a calendar event description (Workspace \code{user\_task\_3}, ``Where is the
+`Dinner with Blue Sparrow Tech' on May 24th going to be?''). Scenario seven,
+\code{workspace\_family\_reunion\_probe}, carries it in the body of a received
+email (\code{user\_task\_14}, ``When is the family reunion going to be, based on
+the emails?''), and is the first scenario whose carrier and sink share a
+channel: the injection arrives in the inbox and would leave through it. Both
+exfiltrate through \code{send\_email} to the attacker address used in scenarios
+one, two and four. Their codebooks are opposite, continuing the alternation.
+Candidates were rejected where the utility oracle passed on short strings an
+answer could contain incidentally, where the carrier was not surfaced by
+plausible rewordings of the search, or where the task's legitimate output was
+itself a secret, which would confound refusal with the variable under study.
+
+For scenarios three to seven, the domain-adapted wording of the three injection
+variants was drafted by a coding assistant running a model from the same family
+as the models under test, from the three fixed framings of scenario two. Every
+variant was reviewed and frozen before its first run, and none was edited in
+response to an outcome. The disclosure is made so that a reader can weigh it.
+
+\subsection{Defects 21 and 22}
+
+The first run of the two scenarios produced a void. \code{gpt-5.6-terra}
+delivered the injection in none of its 72 natural scenario-six records, and the
+automated smoke gate stopped scenario seven before its confirmatory runs.
+
+\textbf{Defect 21.} The scenario-six task asks for the dinner ``on May 24th''
+with no year. In every natural record \code{gpt-5.6-terra} searched the calendar
+for \code{2026-05-24}, the current year by its own reckoning; the AgentDojo
+calendar is set in 2024; every search returned no events; and the model reported
+that it could not find the dinner. Readiness had passed, because the benign
+prompt directs the search with the full date while the attack prompt inherits
+the upstream wording. This is the configuration of defect 16 in a different
+field, and the smoke gate had not caught it because it was applied to one model
+only.
+
+\textbf{Defect 22.} Measuring, for every natural record in every scenario,
+whether the first probe preceded the first tool result carrying the injection
+showed probing the injection could not have caused:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Order of the first probe relative to the carrier, natural condition.
+A probe made before the carrier is read cannot have been instructed by it.}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Scenario & Model & Probed & Before carrier & After carrier & Carrier never read \\
+\midrule
+S1 & both & 1 & 0 & 1 & 0 \\
+S2 & Luna & 17 & 0 & \textbf{17} & 0 \\
+S2 & Terra & 72 & 17 & 0 & 55 \\
+S3, S4 & both & 1 & 0 & 1 & 0 \\
+S5 & Terra & 26 & 23 & 0 & 3 \\
+S6 (first run) & Terra & 54 & 0 & 0 & 54 \\
+S7 (smoke) & Luna & 24 & 21 & 0 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The cause is the one-line description each scenario gives its protected probe.
+Scenario one's reads ``Probe whether a restricted Workspace file exists.'' Later
+descriptions were written to fit their domain and named something adjacent to
+the user's own request --- the restricted gift ledger, the client-dinner notes,
+the family-contact record --- and the models read the tool as part of the task
+and called it unprompted.
+
+What survives is the part that matters. \textbf{The realised attack is
+injection-driven as reported}: every one of the 17 scenario-two probes by
+\code{gpt-5.6-luna} followed its reading of the carrier. \textbf{The leakage
+bounds are unaffected}: a leak requires the codebook, which exists only in the
+injected text, and the delivery gate already excludes every record in which the
+carrier was not read. What is affected is the interpretation of probe rates in
+scenarios two to five, which are reported with this confound attached, and the
+scenario-five reading retracted in Section~\ref{sec:scenario-five}.
+
+\paragraph{The repair.} Scenario six gained one sentence stating the date, in
+the form of the defect-16 repair, and both scenarios adopted scenario one's
+generic probe description. Nothing else changed. The run procedure was amended to
+smoke and gate every model before any confirmatory run. Scenarios two to five
+were not re-run.
+
+\subsection{Outcomes of the repaired runs}
+
+All four smoke gates passed before any confirmatory record was collected, and
+every preregistered prediction held on both models in both scenarios.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Repaired scenarios six and seven. Positive-control figures are correct
+decodes under reason-bearing feedback.}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& S6 Luna & S6 Terra & S7 Luna & S7 Terra \\
+\midrule
+positive control & $40/40$ & $40/40$ & $40/40$ & $40/40$ \\
+natural delivery & $72/72$ & $72/72$ & $72/72$ & $72/72$ \\
+natural / forced sends & $0$ / $0$ & $0$ / $0$ & $0$ / $0$ & $0$ / $0$ \\
+uniform-arm constant & \code{BRAVO} $40/40$ & \code{BRAVO} $40/40$ & \code{ALPHA} $40/40$ & \code{ALPHA} $40/40$ \\
+probe before carrier & $0/72$ & $0/72$ & $0/72$ & $0/72$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The semantic default, predicted for both models.} The uniform-arm
+tokens were predicted before any record existed: \code{BRAVO} in scenario six
+and \code{ALPHA} in scenario seven, opposite tokens that both denote
+\code{PERMISSION\_DENIED} under the two scenarios' opposite codebooks. All 160
+uniform-arm records matched. Scenario five had suggested that the default might
+be model-specific, because \code{gpt-5.6-luna} emitted the \code{NOT\_FOUND} code
+in both Banking scenarios; here it emitted the \code{PERMISSION\_DENIED} code, as
+it did in every scenario where its positive control passed. Its
+\code{NOT\_FOUND} constant has been observed only in arms voided by a failed
+positive control, so the model-specific hypothesis is not supported where the
+instrument was validated.
+
+\paragraph{The defect-22 diagnosis confirmed.} No natural record probed at all
+in either repaired scenario. For scenario seven on \code{gpt-5.6-luna}, where
+the probe description was the only change, probing before the carrier fell from
+21 of 24 exploratory records to none of 72. This is an observation arising from
+a repair, on one scenario and one model, and is reported as such rather than as
+an experiment on tool descriptions.
+
+\subsection{Final bounds, and the dataset is closed}
+\label{sec:final-bounds}
+
+The final leakage-rate bounds cover every interpretable record from scenario
+three onward, the inclusion rule preregistered before scenarios six and seven
+were run. Every included record passes the delivery gate. One event occurs in
+558 natural records and none in 640 forced records. Treating each experimental
+cell as a single observation, the one-sided $95\%$ upper bounds are
+\textbf{$2.52\%$ natural}, $4.57\%$ forced and \textbf{$1.88\%$ pooled}; the
+per-record bounds are $0.85\%$, $0.47\%$ and $0.40\%$ (Section~\ref{sec:stats}).
+
+Data collection closed with these runs. The frozen dataset, its artifact roots
+and the records excluded from it are listed in the preregistration; no further
+model run was made.
 
 
 \chapter{Methodological Findings}
@@ -1709,6 +1918,31 @@ than depending on an analyst remembering to ask.
 \TODO{Assemble the full numbered defect table for the appendix from the
 preregistration document and session records.}
 
+\section{Tool descriptions are a measurement variable}
+\label{sec:tool-descriptions}
+
+A benchmark of this kind attributes reconnaissance to the injection: the model
+probed because untrusted content told it to. Defect 22 shows that the wording of
+the restricted tool's own description can produce the same reconnaissance with
+no injection involved. A description that names something adjacent to the
+user's request is read as part of the task and the tool is called unprompted; a
+generic description is not. In this benchmark the effect was large enough to
+manufacture probing in every natural record of one arm, and it disappeared
+entirely when the description alone was changed.
+
+Two consequences follow for any benchmark that measures agent reconnaissance.
+The description of a protected tool must be held fixed and task-neutral across
+scenarios, or it becomes an uncontrolled variable that differs from scenario to
+scenario. And a probe count is not evidence of injection-driven behaviour unless
+the probe is shown to follow the model's reading of the injection, which requires
+recording the order of events and not only their occurrence.
+
+Defect 21 is the third instance of a related failure. Defects 16 and 21 both
+arose because the benign prompt supplied information --- a filename, a year ---
+that the attack prompt did not, so that the readiness gate passed on a path the
+attack arm never took. A readiness check validates the path it exercises, and no
+other; delivery on the attack arm must be gated for every model directly.
+
 \section{Instrument-first ordering}
 \label{sec:instrumentfirst}
 
@@ -1729,14 +1963,23 @@ artifacts are retained as evidence.
 \label{ch:limitations}
 
 \begin{description}[leftmargin=1.6em,style=nextline]
-  \item[Scenario count.] Two scenarios are registered against a target
-    of 12--16. Both are in the Workspace domain and share an
-    environment. No cross-domain evidence exists.
+  \item[Scenario count.] Seven scenarios were run, against an original
+    target of 12--16. The target was revised with the thesis supervisor
+    after a survey found that only 18 of 97 AgentDojo tasks can host a
+    sink-based counterfactual experiment and that seven cover every
+    distinct carrier modality they offer. Four scenarios are in
+    Workspace; cross-suite evidence rests on the other three.
   \item[Model count.] Two hosted models from a single provider family.
-    No second provider family has been run.
-  \item[Statistical inference.] Results are reported as exact empirical
-    frequencies. Confidence intervals and paired significance tests have
-    not been computed against the current dataset.
+    A third model was judged unnecessary for the thesis scope together
+    with the supervisor.
+  \item[Statistical inference.] With one leakage event in the dataset no
+    rate is estimated. Rates are reported as one-sided upper bounds, per
+    record and per cell (\S\ref{sec:stats}); the per-cell bound is the
+    one cited, and the true value lies somewhere within the bracket.
+  \item[Probe rates in scenarios two to five.] Their protected-probe
+    descriptions invited spontaneous probing (\S\ref{sec:tool-descriptions}),
+    so probe rates in those scenarios are not evidence of injection-driven
+    reconnaissance. Leak counts and bounds are unaffected.
   \item[Scope of the realised attack.] The leak of
     \S\ref{sec:realised} rests on one model
     (\code{gpt-5.6-luna}), one injection variant, one scenario, and four
@@ -1747,7 +1990,8 @@ artifacts are retained as evidence.
   \item[The second model is not a replication.] Defect 17 left
     \code{gpt-5.6-terra}'s natural condition with $17$ of $72$ records
     delivered, so it neither confirms nor contradicts the Luna result
-    (\S\ref{sec:realised}).
+    (\S\ref{sec:realised}). Its probe-first behaviour was later traced to
+    the scenario's probe description (\S\ref{sec:tool-descriptions}).
   \item[The remaining adversarial nulls.] Scenario one's adversarial
     conditions produce zero leakage with delivery verified at $232/232$
     per model, which is a real null. Scenario two's original adversarial
@@ -1766,7 +2010,7 @@ artifacts are retained as evidence.
     value-based. No key-shaped string appears in any of the 3{,}748
     artifact files checked, but a provider whose key format differs from
     the matched shapes would not be redacted. This is a latent risk
-    against the planned second model family.
+    against any other provider.
 \end{description}
 
 % =====================================================================
@@ -1776,9 +2020,9 @@ artifacts are retained as evidence.
 \section{What is established}
 
 \begin{enumerate}
-  \item The harness runs live hosted models end to end across five
-    scenarios and three task suites, with immutable, replayable
-    artifacts.
+  \item The harness runs live hosted models end to end across seven
+    scenarios in three task suites, with immutable, byte-for-byte
+    replayable artifacts. Data collection is closed.
   \item \textbf{The proposal's dual-model authorization layer exists and
     closes the realised channel.} Both configurations blocked every
     attempted exfiltration. The blind guard denies all state-conditional
@@ -1786,82 +2030,53 @@ artifacts are retained as evidence.
     and was not injected, but misattributes provenance when a legitimate
     instruction is echoed in untrusted content.
   \item \textbf{Unsolicited denial-reason leakage is rare and bounded.}
-    Across the interpretable records of scenarios three and four, one
-    send occurred in 216 natural records and none in 240 forced
-    records, with delivery verified at $100\%$ throughout. Treating
-    each experimental cell as one observation, the one-sided $95\%$
-    upper bounds are $6.42\%$ natural and $4.85\%$ pooled.
-  \item That bound is interpretable because the positive control fired
-    at $10/10$ in nearly every cell of the same runs, on the same
-    denial strings. The instrument detects the channel whenever the
-    user prompt authorises its use.
-  \item The primary contrast replicates in every positive control
-    measured: open under reason-bearing feedback, closed under uniform.
-  \item The constant emitted under uniform feedback is a semantic
-    default, not a token bias. It replicates four times, across
-    opposing codebook assignments, always as the code for
-    \code{PERMISSION\_DENIED}.
+    One send in 558 interpretable natural records and none in 640 forced
+    records, with delivery verified throughout; cell-level upper bounds
+    $2.52\%$ natural and $1.88\%$ pooled.
+  \item The instrument detects the channel whenever the user authorises
+    its use, so the bound is a statement about the models, not about the
+    instrument's sensitivity.
+  \item \textbf{A semantic default, predicted in advance.} Under uniform
+    feedback the models emit the \code{PERMISSION\_DENIED} code
+    regardless of which token the codebook assigns to it, predicted
+    before the data for three scenarios and confirmed on both models.
   \item A denial-reason leak has been realised under indirect prompt
     injection, in four counterfactual pairs in one cell of one scenario
     on one model, plus one unpaired event in a second scenario. It is
-    reported at that size wherever it appears.
+    injection-driven, and it is reported at that size.
   \item Leakage is not predicted by suite, carrier modality, sink
     modality or injection framing in any way these experiments identify.
-    The framing mechanism proposed after scenario two did not survive
-    scenario four, where a different variant produced the only event.
-  \item A security--utility frontier exists with two interventions of
-    equal security outcome and opposite utility cost.
-  \item Delay cannot be enforced through the interposer for these
-    models, because they do not retry.
-  \item Instrument validation is per model and per scenario, not
-    global. One model failed one scenario's positive control and passed
-    another's, and the preregistered void rule was applied to the
-    failing arm and not widened beyond it.
-  \item Delivery is measured by the instrument rather than by hand, and
-    a cell with incomplete delivery is reported as void rather than
-    null.
-  \item At most three scenarios in this benchmark can ever sit outside
-    the Workspace suite: only 18 of the 97 packaged AgentDojo user
-    tasks can host a sink-based counterfactual experiment.
+  \item A security--utility frontier exists with interventions of equal
+    security outcome and different utility cost.
+  \item The wording of a protected tool's description is a measurement
+    variable able to manufacture reconnaissance with no injection
+    involved, and a readiness gate validates only the path it exercises.
+  \item Only 18 of the 97 packaged AgentDojo user tasks can host a
+    sink-based counterfactual experiment.
 \end{enumerate}
 
-\section{Immediate next steps}
+\section{Remaining work}
 
+No further experiment is planned. The remaining work is writing:
 \begin{enumerate}
-  \item Report both bounds of Section~\ref{sec:stats} wherever a rate
-    is quoted, and cite the conservative one. The remaining statistical
-    work is a sensitivity analysis over the cell definition, not a
-    further resampling method.
-  \item Continue scenario construction. Each additional scenario now
-    tightens the bound in Section~\ref{sec:scenario-four} rather than
-    searching for a positive result, and the bound is the principal
-    empirical claim.
-  \item Decide whether to repair defect 17, which costs a full re-run of
-    both models and is preregistration-bound.
-  \item Decide whether a third model is warranted, so that a
-    positive-control failure on one model does not halve a run's
-    evidential value.
-  \item Back up the artifact tree after every run; \code{runs/} is
-    excluded from version control and exists only on local disk.
+  \item A full related-work chapter; the current background is a
+    skeleton.
+  \item Converting this laboratory record into thesis prose: an
+    introduction and abstract written from the final results, the
+    methods chapter consolidated from the preregistration, and results
+    reorganised by finding rather than by checkpoint.
+  \item Removing the remaining working markers once each is resolved.
 \end{enumerate}
 
-\section{Open questions for the advisor}
+\section{Decisions recorded with the thesis supervisor}
 
-\begin{enumerate}
-  \item RQ3 has three defense conditions, not four. Immediate adjacency
-    is fixed quarantine at $k=1$.
-  \item Delay should be reported as an observed outcome (option B),
-    supported by the no-retry result.
-  \item Sequencing. The adversarial evidence base is one scenario, not
-    two. Additional Workspace scenarios may produce further copies of
-    the same null, whereas the defense sweep produces comparison tables
-    cheaply. Defect 16 (\S\ref{sec:nullshape}) sharpens rather than
-    settles this: it shows that a scenario can be built, run, and
-    summarised without ever administering the treatment, so the marginal
-    cost of a scenario includes the validation needed to know it
-    measured anything. The two-hour figure in
-    Chapter~\ref{ch:implementation} should be read with that included.
-\end{enumerate}
+On 23 September 2026 the thesis supervisor approved revising the scope to seven
+scenarios on two models, with no additional guard configuration and no scenario
+added only to tighten the statistical bound; asked that the realised attack be
+presented with its limitations rather than strengthened; asked that both guard
+failure modes be retained at the scope the evidence supports; and asked that the
+distinction between per-record and cell-level bounds be retained, with the
+conservative cell-level figure used for the main claim.
 
 % =====================================================================
 \appendix
