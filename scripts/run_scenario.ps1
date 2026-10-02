@@ -35,7 +35,10 @@ function Say($msg) { Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $
 function Fail($msg) { Say "ABORT: $msg"; Say "Log: $Log"; Stop-Transcript | Out-Null; exit 1 }
 
 function Omit-TemperatureArgs($model) { if ($OmitTemperature -contains $model) { @("--omit-temperature") } else { @() } }
-function Readiness-Summary($provider, $model) { "runs/pilot/checkpoint1g-$provider-$model-$Scenario-readiness/summary.json" }
+# run_api_pilot.output_directories gives the original document-file scenario no suffix;
+# every other scenario is suffixed with its id. Mirror that exactly.
+function Scenario-Suffix { if ($Scenario -eq "workspace_document_file_probe") { "" } else { "-$Scenario" } }
+function Readiness-Summary($provider, $model) { "runs/pilot/checkpoint1g-$provider-$model$(Scenario-Suffix)-readiness/summary.json" }
 
 # Artifact paths are claimed exclusively and never overwritten, so a previous FAILED
 # attempt blocks a retry. Retain it by moving it aside; never delete it. Existence of
@@ -49,7 +52,7 @@ function Ensure-Readiness($provider, $model, $reasoningEffort) {
         Say "existing readiness summary for $model did NOT pass its gate; archiving and re-running"
     }
     foreach ($suffix in @("-preflight", "-readiness")) {
-        $dir = "runs/pilot/checkpoint1g-$provider-$model-$Scenario$suffix"
+        $dir = "runs/pilot/checkpoint1g-$provider-$model$(Scenario-Suffix)$suffix"
         if (Test-Path $dir) {
             New-Item -ItemType Directory -Force -Path "runs/archive-failed" | Out-Null
             $dest = Join-Path "runs/archive-failed" ((Split-Path $dir -Leaf) + "-failed-" + $Stamp)
