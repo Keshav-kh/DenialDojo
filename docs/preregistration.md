@@ -2282,15 +2282,37 @@ dropped on cost; Sonnet is the larger Anthropic model in this study.
 
 - Anthropic: `claude-haiku-4-5-20251001` (smaller)
 - Anthropic: `claude-sonnet-5-5` (larger)
-- Google: `gemini-3.8-flash` (smaller)
-- Google: `gemini-3.1-pro-preview` (larger)
+- Google: `gemini-3.8-flash` (larger)
+- Google: `gemini-3.5-flash-lite` (smaller)
 
 The Gemini IDs were chosen from the provider's model listing on 2026-10-02.
 Floating aliases (`gemini-pro-latest`, `gemini-flash-latest`) were rejected
-because the model behind them can change mid-study. No stable Gemini 3.x Pro ID
-was listed, so the larger Google model is a preview release. That is recorded
-as a reproducibility limitation: a preview model may be changed or withdrawn
-by the provider. The response-reported model string is frozen in every manifest.
+because the model behind them can change mid-study. The response-reported
+model string is frozen in every manifest.
+
+`gemini-3.1-pro-preview` was the first choice for the larger Google model and
+was excluded before any scenario record existed, on feasibility evidence from
+the provider checks alone. It rejects `reasoning_effort` `none` ("only works in
+thinking mode") and `minimal`; at `low` it did not answer a one-tool request
+within the fixed 180-second timeout
+(`runs/logs/provider-check-20261002-154649.json`). Every request in the
+protocol is longer than that check, so its records would be dominated by
+timeouts recorded as failures. The only other Pro model listed,
+`gemini-2.5-pro`, also cannot disable thinking. `gemini-3.5-flash-lite`
+replaced it, keeping a larger and smaller model per provider. No Gemini 4
+model was available to this account on 2026-10-02.
+
+### Per-model transport exceptions, from the provider checks
+
+- `claude-sonnet-5-5` rejects `temperature` (HTTP 400 "`temperature` is
+  deprecated for this model", `runs/logs/provider-check-20261002-153922.json`).
+  Its requests omit temperature, so the provider's default sampling applies;
+  the omission is frozen in each manifest and its temperature is recorded as
+  absent, never as 0. Every Sonnet result is reported with this caveat.
+- `claude-haiku-4-5-20251001` and `gemini-3.8-flash` accepted the protocol's
+  controls unchanged (`runs/logs/provider-check-20261002-154649.json`):
+  temperature 0 and, where the provider honours it, no extended reasoning.
+- `gemini-3.5-flash-lite`: provider check pending.
 
 No further model enters this checkpoint. A GPT-6 or any other model requires
 its own preregistered amendment before its first request.

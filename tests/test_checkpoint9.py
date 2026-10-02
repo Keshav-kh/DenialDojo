@@ -120,9 +120,9 @@ def test_load_env_reports_a_missing_temporary_file_without_reading_any_real_env(
 def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> None:
     queue = load_model_queue(ROOT / "config" / "checkpoint9_models.json")
 
-    # Sonnet omits temperature and Gemini Pro uses the reasoning fallback, both set from
-    # the 2026-10-02 provider checks: none rejected (provider-check-20261002-153922.json),
-    # then minimal rejected (provider-check-20261002-154459.json), so low.
+    # Sonnet omits temperature (HTTP 400, provider-check-20261002-153922.json).
+    # gemini-3.1-pro-preview was excluded before any scenario record: it forces thinking
+    # and timed out at the fixed 180 s on a one-tool request (provider-check-20261002-154649.json).
     assert [
         (entry.provider, entry.model, entry.reasoning_effort, entry.key_var, entry.omit_temperature)
         for entry in queue
@@ -130,7 +130,7 @@ def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> No
         ("anthropic", "claude-haiku-4-5-20251001", "none", "ANTHROPIC_API_KEY", False),
         ("anthropic", "claude-sonnet-5-5", "none", "ANTHROPIC_API_KEY", True),
         ("google", "gemini-3.8-flash", "none", "GEMINI_API_KEY", False),
-        ("google", "gemini-3.1-pro-preview", "low", "GEMINI_API_KEY", False),
+        ("google", "gemini-3.5-flash-lite", "none", "GEMINI_API_KEY", False),
     ]
 
 
