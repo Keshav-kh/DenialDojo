@@ -232,7 +232,8 @@ public static class DenialDojoPowerState {
                 $childLog = Join-Path $LogDirectory "overnight-$Stamp-$slug-$scenario.log"
                 # Under "Stop", Windows PowerShell 5.1 turns the first native stderr line
                 # merged by 2>&1 into a terminating error, which would end the night.
-                $childExtra = if (Test-OmitTemperature $entry) { @("-OmitTemperature", [string]$entry.model) } else { @() }
+                $childExtra = @()
+                if (Test-OmitTemperature $entry) { $childExtra += "-OmitTemperature"; $childExtra += [string]$entry.model }
                 $ErrorActionPreference = "Continue"
                 $childOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_scenario.ps1") `
                     -Scenario $scenario -SmokeRoot $smokeRoot -FinalRoot $finalRoot -Models $entry.model `

@@ -121,7 +121,8 @@ def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> No
     queue = load_model_queue(ROOT / "config" / "checkpoint9_models.json")
 
     # Sonnet omits temperature and Gemini Pro uses the reasoning fallback, both set from
-    # the 2026-10-02 provider check (runs/logs/provider-check-20261002-153922.json).
+    # the 2026-10-02 provider checks: none rejected (provider-check-20261002-153922.json),
+    # then minimal rejected (provider-check-20261002-154459.json), so low.
     assert [
         (entry.provider, entry.model, entry.reasoning_effort, entry.key_var, entry.omit_temperature)
         for entry in queue
@@ -129,7 +130,7 @@ def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> No
         ("anthropic", "claude-haiku-4-5-20251001", "none", "ANTHROPIC_API_KEY", False),
         ("anthropic", "claude-sonnet-5-5", "none", "ANTHROPIC_API_KEY", True),
         ("google", "gemini-3.8-flash", "none", "GEMINI_API_KEY", False),
-        ("google", "gemini-3.1-pro-preview", "minimal", "GEMINI_API_KEY", False),
+        ("google", "gemini-3.1-pro-preview", "low", "GEMINI_API_KEY", False),
     ]
 
 
