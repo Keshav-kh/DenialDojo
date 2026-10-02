@@ -18,6 +18,7 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("openai", "anthropic", "google")]
     [string[]]$Provider,
+    [string[]]$ReasoningEffort = @("none", "none"),
     [string[]]$Models = @("gpt-5.6-luna", "gpt-5.6-terra")
 )
 
@@ -36,7 +37,7 @@ function Readiness-Summary($provider, $model) { "runs/pilot/checkpoint1g-$provid
 # Artifact paths are claimed exclusively and never overwritten, so a previous FAILED
 # attempt blocks a retry. Retain it by moving it aside; never delete it. Existence of
 # a summary is not success: a gate that ran and failed also writes one.
-function Ensure-Readiness($provider, $model) {
+function Ensure-Readiness($provider, $model, $reasoningEffort) {
     $summary = Readiness-Summary $provider $model
     if (Test-Path $summary) {
         $passed = $false
@@ -54,13 +55,17 @@ function Ensure-Readiness($provider, $model) {
         }
     }
     py -3.14 -m uv run python -m denialdojo.run_api_pilot `
-        --provider $provider --model $model --scenario $Scenario
+        --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario
     if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for $model (exit $LASTEXITCODE)" }
     if (-not (Test-Path $summary)) { Fail "readiness summary missing for ${model}: $summary" }
 }
 
 if (-not $env:DENIALDOJO_API_KEY) { Fail "DENIALDOJO_API_KEY is not set in this terminal" }
 if ($Provider.Count -ne $Models.Count) { Fail "-Provider must contain exactly one entry per -Models entry" }
+if ($ReasoningEffort.Count -eq 1 -and $ReasoningEffort[0] -eq "none") {
+    $ReasoningEffort = @(1..$Models.Count | ForEach-Object { "none" })
+}
+if ($ReasoningEffort.Count -ne $Models.Count) { Fail "-ReasoningEffort must contain exactly one entry per -Models entry" }
 Say "API key is set"
 Say "scenario: $Scenario"
 Say "models:   $($Models -join ', ')"
@@ -70,8 +75,9 @@ Say "log:      $Log"
 for ($index = 0; $index -lt $Models.Count; $index++) {
     $model = $Models[$index]
     $provider = $Provider[$index]
+    $reasoningEffort = $ReasoningEffort[$index]
     Say "readiness gate, $provider/$model"
-    Ensure-Readiness $provider $model
+    Ensure-Readiness $provider $model $reasoningEffort
 }
 
 # Every model is smoked and gated, not only one. Checkpoint 8D: gating only gpt-5.6-luna let a
@@ -79,9 +85,10 @@ for ($index = 0; $index -lt $Models.Count; $index++) {
 for ($index = 0; $index -lt $Models.Count; $index++) {
     $model = $Models[$index]
     $provider = $Provider[$index]
+    $reasoningEffort = $ReasoningEffort[$index]
     Say "exploratory smoke run, $provider/$model, 1 repetition per cell"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
-        --provider $provider --model $model --scenario $Scenario `
+        --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario `
         --readiness-summary (Readiness-Summary $provider $model) --output-root $SmokeRoot `
         --natural-repetitions 1 --forced-repetitions 1 --positive-control-repetitions 1
     if ($LASTEXITCODE -ne 0) { Fail "smoke run failed for $model (exit $LASTEXITCODE)" }
@@ -95,9 +102,10 @@ for ($index = 0; $index -lt $Models.Count; $index++) {
 for ($index = 0; $index -lt $Models.Count; $index++) {
     $model = $Models[$index]
     $provider = $Provider[$index]
+    $reasoningEffort = $ReasoningEffort[$index]
     Say "confirmatory run, $provider/$model, 232 attack + 80 benign"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
-        --provider $provider --model $model --scenario $Scenario `
+        --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario `
         --readiness-summary (Readiness-Summary $provider $model) --output-root $FinalRoot
     if ($LASTEXITCODE -ne 0) { Fail "confirmatory run failed for $model (exit $LASTEXITCODE)" }
 }
