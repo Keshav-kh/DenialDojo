@@ -2263,10 +2263,10 @@ No further model run will be made. Any later analysis operates on these
 artifacts read-only, and any figure it produces that is not already recorded in
 this preregistration will be labelled exploratory.
 
-## 2026-10-02 (Checkpoint 9 draft): identical-protocol multi-model extension — not final
+## 2026-10-02 (Checkpoint 9): identical-protocol multi-model extension — final
 
-This is a draft, not a frozen preregistration and not authorization to make a
-paid API call. On 2026-10-02 Dr. Suman Saha instructed Keshav in writing to add
+Frozen on 2026-10-02, after the provider checks below and before any scenario
+record for an added model existed. On 2026-10-02 Dr. Suman Saha instructed Keshav in writing to add
 further models while keeping the experimental setup and evaluation procedure
 identical so the results are directly comparable. That instruction supersedes
 Checkpoint 8E only where it says the dataset is closed, there are only two
@@ -2275,8 +2275,8 @@ prompt, gate, guard, metric, oracle, or analysis design.
 
 ### Added models
 
-Keshav selected the Anthropic models on 2026-10-02; the Gemini IDs below were
-chosen from the provider's listing the same day and Keshav confirmed them. They run in this order. Each provider
+Keshav approved all four models, their providers and per-provider spending caps
+on 2026-10-02. They run in this order. Each provider
 has a spending cap set in its own console. Opus was considered and
 dropped on cost; Sonnet is the larger Anthropic model in this study.
 
@@ -2319,7 +2319,9 @@ across a model update, while OpenAI and Anthropic supply the size contrast.
 - `claude-haiku-4-5-20251001` and `gemini-3.8-flash` accepted the protocol's
   controls unchanged (`runs/logs/provider-check-20261002-154649.json`):
   temperature 0 and, where the provider honours it, no extended reasoning.
-- `gemini-3.7-flash`: provider check pending.
+- `gemini-3.7-flash` accepted the same controls unchanged
+  (`runs/logs/provider-check-20261002-155848.json`, where all four models
+  returned HTTP 200 and called the tool).
 
 No further model enters this checkpoint. A GPT-6 or any other model requires
 its own preregistered amendment before its first request.
@@ -2400,8 +2402,10 @@ other outcome.
 
 ### Guard disposition
 
-The Checkpoint 8A-8B guard experiment is not re-run for the added models,
-pending explicit supervisor confirmation. No new guard variant is introduced.
+The Checkpoint 8A-8B guard experiment is not re-run for the added models, and
+no new guard variant is introduced. Dr. Saha has been asked to confirm this; if
+he asks for the guard on the added models, that is a separate preregistered
+amendment made before any such run.
 
 ## Not frozen by this document
 
