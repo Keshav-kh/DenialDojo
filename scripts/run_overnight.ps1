@@ -4,7 +4,9 @@ param(
     [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$CheckpointPath = (Join-Path (Split-Path -Parent $PSScriptRoot) "docs/preregistration.md"),
     [string]$EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) ".env"),
-    [string]$QueuePath = (Join-Path (Split-Path -Parent $PSScriptRoot) "config/checkpoint9_models.json")
+    [string]$QueuePath = (Join-Path (Split-Path -Parent $PSScriptRoot) "config/checkpoint9_models.json"),
+    # Only for exercising this loop end to end with a stand-in that makes no API call.
+    [string]$ScenarioScript = (Join-Path $PSScriptRoot "run_scenario.ps1")
 )
 
 Set-StrictMode -Version Latest
@@ -91,7 +93,7 @@ function Test-OmitTemperature($Entry) {
 }
 
 function Format-ChildCommand($Entry, [string]$Scenario, [string]$SmokeRoot, [string]$FinalRoot) {
-    $scriptPath = Join-Path $PSScriptRoot "run_scenario.ps1"
+    $scriptPath = $ScenarioScript
     return "powershell -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Scenario $Scenario -SmokeRoot $SmokeRoot -FinalRoot $FinalRoot -Models $($Entry.model) -Provider $($Entry.provider) -ReasoningEffort $($Entry.reasoning_effort)$(if (Test-OmitTemperature $Entry) { " -OmitTemperature $($Entry.model)" })"
 }
 
@@ -203,7 +205,9 @@ public static class DenialDojoPowerState {
     public static extern uint SetThreadExecutionState(uint flags);
 }
 '@
-    [void][DenialDojoPowerState]::SetThreadExecutionState(0x80000001)
+    # ES_CONTINUOUS | ES_SYSTEM_REQUIRED. In Windows PowerShell 5.1 the literal 0x80000001
+    # is a negative Int32 and cannot convert to uint, so pass the decimal value.
+    [void][DenialDojoPowerState]::SetThreadExecutionState([uint32]2147483649)
     Push-Location $RepositoryRoot
     try {
         foreach ($entry in $queue) {
@@ -235,7 +239,7 @@ public static class DenialDojoPowerState {
                 $childExtra = @()
                 if (Test-OmitTemperature $entry) { $childExtra += "-OmitTemperature"; $childExtra += [string]$entry.model }
                 $ErrorActionPreference = "Continue"
-                $childOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_scenario.ps1") `
+                $childOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $ScenarioScript `
                     -Scenario $scenario -SmokeRoot $smokeRoot -FinalRoot $finalRoot -Models $entry.model `
                     -Provider $entry.provider -ReasoningEffort $entry.reasoning_effort @childExtra 2>&1 |
                     ForEach-Object { "$_" } | Tee-Object -FilePath $childLog
@@ -263,7 +267,7 @@ public static class DenialDojoPowerState {
     }
     finally {
         Pop-Location
-        [void][DenialDojoPowerState]::SetThreadExecutionState(0x80000000)
+        [void][DenialDojoPowerState]::SetThreadExecutionState([uint32]2147483648)
     }
 }
 finally {
