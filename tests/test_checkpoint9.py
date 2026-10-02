@@ -370,8 +370,11 @@ def test_provider_check_reports_each_queued_model_without_network(tmp_path: Path
     ]
 
 
-def test_omit_temperature_is_omitted_from_payload_and_recorded_as_none() -> None:
+def test_omit_temperature_is_omitted_from_payload_and_recorded_as_none(monkeypatch) -> None:
     from denialdojo.api_adapter import ApiAdapter, runtime_metadata_from_adapter
+
+    # The adapter refuses to build a request without a key; never rely on the caller's shell.
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "fixture-provider-check-key")
 
     config = ApiConfig(provider="anthropic", model="claude-sonnet-5-5", omit_temperature=True)
     profile = config.payload_profile()
