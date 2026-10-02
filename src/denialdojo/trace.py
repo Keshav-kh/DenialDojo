@@ -60,7 +60,7 @@ class ModelRuntimeMetadata(StrictTraceModel):
     model_digest: str | None
     quantization: str | None
     context_window: int | None
-    temperature: float
+    temperature: float | None
     reasoning_effort: str | None = None
     maximum_steps: int
     timeout_seconds: float

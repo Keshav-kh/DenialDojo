@@ -50,7 +50,7 @@ def _runtime_metadata(config: ApiConfig) -> ModelRuntimeMetadata:
         model_digest=None,
         quantization=None,
         context_window=None,
-        temperature=controls["temperature"].get("value", config.temperature),
+        temperature=controls["temperature"].get("value"),
         reasoning_effort=controls["reasoning_effort"].get("value"),
         maximum_steps=config.maximum_steps,
         timeout_seconds=config.timeout_seconds,
@@ -183,6 +183,7 @@ def main() -> None:
     parser.add_argument("--model", default="gpt-5.6-luna")
     parser.add_argument("--base-url")
     parser.add_argument("--reasoning-effort", default="none")
+    parser.add_argument("--omit-temperature", action="store_true")
     parser.add_argument("--scenario", choices=scenario_ids(), default=WORKSPACE_DOCUMENT_FILE_PROBE.id)
     args = parser.parse_args()
     result = run_api_pilot(
@@ -191,6 +192,7 @@ def main() -> None:
             model=args.model,
             base_url=args.base_url,
             reasoning_effort=args.reasoning_effort,
+            omit_temperature=args.omit_temperature,
         ),
         scenario_id=args.scenario,
     )

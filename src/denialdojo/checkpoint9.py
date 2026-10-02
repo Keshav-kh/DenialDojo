@@ -28,6 +28,7 @@ class Checkpoint9Model(BaseModel):
     model: str = Field(min_length=1)
     reasoning_effort: str = Field(min_length=1)
     key_var: KeyVariable
+    omit_temperature: bool = False
 
     @model_validator(mode="after")
     def validate_key_variable(self) -> Checkpoint9Model:

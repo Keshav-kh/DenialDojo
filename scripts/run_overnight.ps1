@@ -85,9 +85,14 @@ function Test-ProviderHttpFailure([string]$Output) {
     return $Output -match "(?i)HTTP\s+(401|403|429|5\d\d)\b|authentication|unauthorized|quota"
 }
 
+function Test-OmitTemperature($Entry) {
+    $property = $Entry.PSObject.Properties["omit_temperature"]
+    return [bool]($property -and $property.Value)
+}
+
 function Format-ChildCommand($Entry, [string]$Scenario, [string]$SmokeRoot, [string]$FinalRoot) {
     $scriptPath = Join-Path $PSScriptRoot "run_scenario.ps1"
-    return "powershell -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Scenario $Scenario -SmokeRoot $SmokeRoot -FinalRoot $FinalRoot -Models $($Entry.model) -Provider $($Entry.provider) -ReasoningEffort $($Entry.reasoning_effort)"
+    return "powershell -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Scenario $Scenario -SmokeRoot $SmokeRoot -FinalRoot $FinalRoot -Models $($Entry.model) -Provider $($Entry.provider) -ReasoningEffort $($Entry.reasoning_effort)$(if (Test-OmitTemperature $Entry) { " -OmitTemperature $($Entry.model)" })"
 }
 
 New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
@@ -227,10 +232,11 @@ public static class DenialDojoPowerState {
                 $childLog = Join-Path $LogDirectory "overnight-$Stamp-$slug-$scenario.log"
                 # Under "Stop", Windows PowerShell 5.1 turns the first native stderr line
                 # merged by 2>&1 into a terminating error, which would end the night.
+                $childExtra = if (Test-OmitTemperature $entry) { @("-OmitTemperature", [string]$entry.model) } else { @() }
                 $ErrorActionPreference = "Continue"
                 $childOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_scenario.ps1") `
                     -Scenario $scenario -SmokeRoot $smokeRoot -FinalRoot $finalRoot -Models $entry.model `
-                    -Provider $entry.provider -ReasoningEffort $entry.reasoning_effort 2>&1 |
+                    -Provider $entry.provider -ReasoningEffort $entry.reasoning_effort @childExtra 2>&1 |
                     ForEach-Object { "$_" } | Tee-Object -FilePath $childLog
                 $exitCode = $LASTEXITCODE
                 $ErrorActionPreference = "Stop"

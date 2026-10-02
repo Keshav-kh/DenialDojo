@@ -58,6 +58,7 @@ def _queue(path: Path) -> None:
                     "model": "claude-sonnet-5-5",
                     "reasoning_effort": "none",
                     "key_var": "ANTHROPIC_API_KEY",
+                    "omit_temperature": True,
                 },
                 {
                     "provider": "google",
@@ -119,11 +120,16 @@ def test_load_env_reports_a_missing_temporary_file_without_reading_any_real_env(
 def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> None:
     queue = load_model_queue(ROOT / "config" / "checkpoint9_models.json")
 
-    assert [(entry.provider, entry.model, entry.reasoning_effort, entry.key_var) for entry in queue] == [
-        ("anthropic", "claude-haiku-4-5-20251001", "none", "ANTHROPIC_API_KEY"),
-        ("anthropic", "claude-sonnet-5-5", "none", "ANTHROPIC_API_KEY"),
-        ("google", "gemini-3.8-flash", "none", "GEMINI_API_KEY"),
-        ("google", "gemini-3.1-pro-preview", "none", "GEMINI_API_KEY"),
+    # Sonnet omits temperature and Gemini Pro uses the reasoning fallback, both set from
+    # the 2026-10-02 provider check (runs/logs/provider-check-20261002-153922.json).
+    assert [
+        (entry.provider, entry.model, entry.reasoning_effort, entry.key_var, entry.omit_temperature)
+        for entry in queue
+    ] == [
+        ("anthropic", "claude-haiku-4-5-20251001", "none", "ANTHROPIC_API_KEY", False),
+        ("anthropic", "claude-sonnet-5-5", "none", "ANTHROPIC_API_KEY", True),
+        ("google", "gemini-3.8-flash", "none", "GEMINI_API_KEY", False),
+        ("google", "gemini-3.1-pro-preview", "minimal", "GEMINI_API_KEY", False),
     ]
 
 
@@ -306,6 +312,8 @@ def test_overnight_dry_run_unrolls_every_queued_model_under_windows_powershell(t
         assert f"=== {provider}/{model}: key from {key_var} ===" in lines
         commands = [line for line in lines if f"-Models {model} -Provider {provider} " in line]
         assert len(commands) == 7
+        omits = [line for line in commands if line.endswith(f"-OmitTemperature {model}")]
+        assert len(omits) == (7 if model == "claude-sonnet-5-5" else 0)
     assert "ANTHROPIC_API_KEY: set" in lines
     assert "GEMINI_API_KEY: NOT SET" in lines
     assert "PREFLIGHT FAILED: GEMINI_API_KEY: NOT SET" in lines
@@ -359,3 +367,44 @@ def test_provider_check_reports_each_queued_model_without_network(tmp_path: Path
         "GEMINI_API_KEY is NOT SET",
         "GEMINI_API_KEY is NOT SET",
     ]
+
+
+def test_omit_temperature_is_omitted_from_payload_and_recorded_as_none() -> None:
+    from denialdojo.api_adapter import ApiAdapter, runtime_metadata_from_adapter
+
+    config = ApiConfig(provider="anthropic", model="claude-sonnet-5-5", omit_temperature=True)
+    profile = config.payload_profile()
+    assert profile["controls"]["temperature"]["disposition"] == "omitted"
+    assert "HTTP 400" in profile["controls"]["temperature"]["reason"]
+    transport = _Transport(
+        {"model": "claude-sonnet-5-5", "choices": [{"finish_reason": "stop", "message": {"content": "done"}}]}
+    )
+    adapter = ApiAdapter(config, transport=transport)
+    result = run_provider_check(config, transport=transport)
+    payload = transport.calls[0][2]
+    assert "temperature" not in payload
+    assert result["http_status"] == 200
+    assert runtime_metadata_from_adapter(adapter).temperature is None
+    # The default still sends temperature 0, unchanged from Checkpoints 1-8.
+    assert ApiConfig(provider="anthropic", model="claude-haiku-4-5-20251001").payload_profile()["controls"][
+        "temperature"
+    ] == {
+        "disposition": "sent",
+        "value": 0.0,
+        "reason": "Anthropic OpenAI compatibility supports temperature from 0 through 1.",
+    }
+
+
+def test_reasoning_fallback_level_is_recorded_as_requested() -> None:
+    profile = ApiConfig(provider="google", model="gemini-3.1-pro-preview", reasoning_effort="minimal").payload_profile()
+    assert profile["controls"]["reasoning_effort"]["value"] == "minimal"
+    assert profile["extended_reasoning"]["requested"] == "minimal"
+    assert ApiConfig(provider="google", model="gemini-3.8-flash").payload_profile()["extended_reasoning"][
+        "requested"
+    ] == "disabled"
+
+
+def test_committed_queue_carries_the_provider_check_outcomes() -> None:
+    queue = {entry.model: entry for entry in load_model_queue(ROOT / "config" / "checkpoint9_models.json")}
+    assert queue["claude-sonnet-5-5"].omit_temperature is True
+    assert not any(entry.omit_temperature for name, entry in queue.items() if name != "claude-sonnet-5-5")

@@ -90,12 +90,14 @@ def main() -> None:
     parser.add_argument("--provider", choices=("openai", "anthropic", "google"), required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--reasoning-effort", required=True)
+    parser.add_argument("--omit-temperature", action="store_true")
     args = parser.parse_args()
     result = run_provider_check(
         ApiConfig(
             provider=args.provider,
             model=args.model,
             reasoning_effort=args.reasoning_effort,
+            omit_temperature=args.omit_temperature,
         )
     )
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

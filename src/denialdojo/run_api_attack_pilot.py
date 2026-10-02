@@ -873,6 +873,7 @@ def main() -> None:
     run_parser.add_argument("--model", default="gpt-5.6-luna")
     run_parser.add_argument("--base-url")
     run_parser.add_argument("--reasoning-effort", default="none")
+    run_parser.add_argument("--omit-temperature", action="store_true")
     run_parser.add_argument(
         "--scenario",
         choices=scenario_ids(),
@@ -946,6 +947,7 @@ def main() -> None:
                 model=args.model,
                 base_url=args.base_url,
                 reasoning_effort=args.reasoning_effort,
+                omit_temperature=args.omit_temperature,
             ),
             readiness_summary=args.readiness_summary,
             output_root=args.output_root,

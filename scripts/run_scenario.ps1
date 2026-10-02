@@ -19,6 +19,8 @@ param(
     [ValidateSet("openai", "anthropic", "google")]
     [string[]]$Provider,
     [string[]]$ReasoningEffort = @("none", "none"),
+    # Models (by -Models name) that reject temperature; see the Checkpoint 9 provider check.
+    [string[]]$OmitTemperature = @(),
     [string[]]$Models = @("gpt-5.6-luna", "gpt-5.6-terra")
 )
 
@@ -32,6 +34,7 @@ Start-Transcript -Path $Log -Append | Out-Null
 function Say($msg) { Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) }
 function Fail($msg) { Say "ABORT: $msg"; Say "Log: $Log"; Stop-Transcript | Out-Null; exit 1 }
 
+function Omit-TemperatureArgs($model) { if ($OmitTemperature -contains $model) { @("--omit-temperature") } else { @() } }
 function Readiness-Summary($provider, $model) { "runs/pilot/checkpoint1g-$provider-$model-$Scenario-readiness/summary.json" }
 
 # Artifact paths are claimed exclusively and never overwritten, so a previous FAILED
@@ -55,7 +58,8 @@ function Ensure-Readiness($provider, $model, $reasoningEffort) {
         }
     }
     py -3.14 -m uv run python -m denialdojo.run_api_pilot `
-        --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario
+        --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario `
+        @(Omit-TemperatureArgs $model)
     if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for $model (exit $LASTEXITCODE)" }
     if (-not (Test-Path $summary)) { Fail "readiness summary missing for ${model}: $summary" }
 }
@@ -89,7 +93,7 @@ for ($index = 0; $index -lt $Models.Count; $index++) {
     Say "exploratory smoke run, $provider/$model, 1 repetition per cell"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
         --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario `
-        --readiness-summary (Readiness-Summary $provider $model) --output-root $SmokeRoot `
+        @(Omit-TemperatureArgs $model) --readiness-summary (Readiness-Summary $provider $model) --output-root $SmokeRoot `
         --natural-repetitions 1 --forced-repetitions 1 --positive-control-repetitions 1
     if ($LASTEXITCODE -ne 0) { Fail "smoke run failed for $model (exit $LASTEXITCODE)" }
 
@@ -106,7 +110,7 @@ for ($index = 0; $index -lt $Models.Count; $index++) {
     Say "confirmatory run, $provider/$model, 232 attack + 80 benign"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
         --provider $provider --model $model --reasoning-effort $reasoningEffort --scenario $Scenario `
-        --readiness-summary (Readiness-Summary $provider $model) --output-root $FinalRoot
+        @(Omit-TemperatureArgs $model) --readiness-summary (Readiness-Summary $provider $model) --output-root $FinalRoot
     if ($LASTEXITCODE -ne 0) { Fail "confirmatory run failed for $model (exit $LASTEXITCODE)" }
 }
 

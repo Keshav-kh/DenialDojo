@@ -54,9 +54,11 @@ try {
         else {
             [Environment]::SetEnvironmentVariable("DENIALDOJO_API_KEY", $key, "Process")
             # "Continue": under "Stop", 5.1 throws on the first merged stderr line.
+            $omitProperty = $entry.PSObject.Properties["omit_temperature"]
+            $checkExtra = if ($omitProperty -and $omitProperty.Value) { @("--omit-temperature") } else { @() }
             $ErrorActionPreference = "Continue"
             $pythonOutput = & py -3.14 -m uv run python -m denialdojo.provider_check `
-                --provider $entry.provider --model $entry.model --reasoning-effort $entry.reasoning_effort 2>&1
+                --provider $entry.provider --model $entry.model --reasoning-effort $entry.reasoning_effort @checkExtra 2>&1
             $pythonExit = $LASTEXITCODE
             $ErrorActionPreference = "Stop"
             # Parse stdout only; uv and warnings write to stderr.

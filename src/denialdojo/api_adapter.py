@@ -44,6 +44,9 @@ class ApiConfig(BaseModel):
     timeout_seconds: float = Field(default=180, ge=180, le=180)
     retry_count: int = Field(default=0, ge=0, le=0)
     seed: int = Field(default=0, ge=0, le=0)
+    # Some models reject temperature outright (HTTP 400). The Checkpoint 9 provider
+    # check is the only evidence that may set this; it is frozen in the manifest.
+    omit_temperature: bool = False
 
     @model_validator(mode="after")
     def resolve_provider_base_url(self) -> ApiConfig:
@@ -110,6 +113,16 @@ class ApiConfig(BaseModel):
                 },
             },
         }
+        controls = dict(decisions[self.provider])
+        if self.omit_temperature:
+            controls["temperature"] = {
+                "disposition": "omitted",
+                "configured_value": float(self.temperature),
+                "reason": (
+                    "This model rejects temperature (HTTP 400 in the Checkpoint 9 provider check); "
+                    "the provider's default sampling applies."
+                ),
+            }
         reasoning_effective = {
             "openai": "disabled",
             "anthropic": "provider_model_default",
@@ -129,9 +142,9 @@ class ApiConfig(BaseModel):
         return {
             "provider": self.provider,
             "base_url": self.base_url,
-            "controls": decisions[self.provider],
+            "controls": controls,
             "extended_reasoning": {
-                "requested": "disabled",
+                "requested": "disabled" if self.reasoning_effort == "none" else self.reasoning_effort,
                 "effective": reasoning_effective,
                 "reason": reasoning_reason,
             },
@@ -473,7 +486,7 @@ def runtime_metadata_from_adapter(adapter: ApiAdapter) -> ModelRuntimeMetadata:
         model_digest=None,
         quantization=None,
         context_window=None,
-        temperature=controls["temperature"].get("value", adapter.config.temperature),
+        temperature=controls["temperature"].get("value"),
         reasoning_effort=controls["reasoning_effort"].get("value"),
         maximum_steps=adapter.config.maximum_steps,
         timeout_seconds=adapter.config.timeout_seconds,
