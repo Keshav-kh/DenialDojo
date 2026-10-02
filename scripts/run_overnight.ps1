@@ -124,7 +124,9 @@ try {
     }
 
     try {
-        $queue = @(Get-Content -LiteralPath $QueuePath -Raw | ConvertFrom-Json)
+        # Windows PowerShell 5.1 emits a JSON array as one object; re-pipe to unroll it.
+        $parsedQueue = Get-Content -LiteralPath $QueuePath -Raw | ConvertFrom-Json
+        $queue = @($parsedQueue | ForEach-Object { $_ })
         if ($queue.Count -eq 0) {
             throw "Checkpoint 9 model queue is empty"
         }
@@ -167,6 +169,7 @@ try {
         Write-Output "DRY RUN: API calls disabled"
         foreach ($entry in $queue) {
             $slug = Get-ModelSlug ([string]$entry.model)
+            Write-Output "=== $($entry.provider)/$($entry.model): key from $($entry.key_var) ==="
             foreach ($scenario in $Scenarios) {
                 Write-Output (Format-ChildCommand $entry $scenario "runs/pilot9-smoke-$slug" "runs/pilot9-$slug")
             }
@@ -202,6 +205,14 @@ public static class DenialDojoPowerState {
             $consecutiveProviderFailures = 0
             $skipRemaining = $false
             $slug = Get-ModelSlug ([string]$entry.model)
+            # The child run_scenario.ps1 reads only DENIALDOJO_API_KEY; select this
+            # model's provider key for it, in process scope only.
+            [Environment]::SetEnvironmentVariable(
+                "DENIALDOJO_API_KEY",
+                [Environment]::GetEnvironmentVariable([string]$entry.key_var, "Process"),
+                "Process"
+            )
+            Write-Output "=== $($entry.provider)/$($entry.model): key from $($entry.key_var) ==="
             foreach ($scenario in $Scenarios) {
                 $smokeRoot = "runs/pilot9-smoke-$slug"
                 $finalRoot = "runs/pilot9-$slug"
@@ -214,10 +225,15 @@ public static class DenialDojoPowerState {
                     continue
                 }
                 $childLog = Join-Path $LogDirectory "overnight-$Stamp-$slug-$scenario.log"
+                # Under "Stop", Windows PowerShell 5.1 turns the first native stderr line
+                # merged by 2>&1 into a terminating error, which would end the night.
+                $ErrorActionPreference = "Continue"
                 $childOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_scenario.ps1") `
                     -Scenario $scenario -SmokeRoot $smokeRoot -FinalRoot $finalRoot -Models $entry.model `
-                    -Provider $entry.provider -ReasoningEffort $entry.reasoning_effort 2>&1 | Tee-Object -FilePath $childLog
+                    -Provider $entry.provider -ReasoningEffort $entry.reasoning_effort 2>&1 |
+                    ForEach-Object { "$_" } | Tee-Object -FilePath $childLog
                 $exitCode = $LASTEXITCODE
+                $ErrorActionPreference = "Stop"
                 $outputText = $childOutput | Out-String
                 $status = if ($exitCode -eq 0 -and $outputText -match "(?i)\bvoid\b") { "void" } elseif ($exitCode -eq 0) { "completed" } else { "failed-at-stage" }
                 $stage = if ($exitCode -eq 0) { $null } else { Get-FailureStage $outputText }
@@ -249,7 +265,10 @@ finally {
         schema_version = "denialdojo-overnight-summary-v1"
         created_at = (Get-Date).ToUniversalTime().ToString("o")
         rows = $summaries
-    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $SummaryPath -Encoding utf8NoBOM
+    } | ConvertTo-Json -Depth 10 | ForEach-Object {
+        # utf8NoBOM does not exist in Windows PowerShell 5.1.
+        [IO.File]::WriteAllText($SummaryPath, $_, (New-Object System.Text.UTF8Encoding($false)))
+    }
     if ($summaries.Count) {
         $summaries | ForEach-Object {
             [pscustomobject]@{

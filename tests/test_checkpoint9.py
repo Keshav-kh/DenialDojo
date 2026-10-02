@@ -268,3 +268,94 @@ def test_overnight_checkpoint_gate_inspects_only_the_checkpoint_9_section(
     assert "git tree is dirty" in result.stdout
     assert ("Checkpoint 9 contains placeholders" in result.stdout) is flags_placeholders
     assert ("Checkpoint 9 is not marked final" in result.stdout) is flags_not_final
+
+
+def test_overnight_dry_run_unrolls_every_queued_model_under_windows_powershell(tmp_path: Path) -> None:
+    # Windows PowerShell 5.1 emits a JSON array as one object; an un-unrolled queue
+    # collapses all four models into a single entry with space-joined fields.
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _initialise_clean_repository(repository)
+    checkpoint_path = tmp_path / "preregistration.md"
+    checkpoint_path.write_text("## Checkpoint 9 draft\n", encoding="utf-8")
+    env_path = tmp_path / "temporary.env"
+    env_path.write_text("ANTHROPIC_API_KEY=x\n", encoding="utf-8")
+    queue_path = tmp_path / "queue.json"
+    _queue(queue_path)
+
+    result = _run_powershell(
+        str(SCRIPTS / "run_overnight.ps1"),
+        "-DryRun",
+        "-RepositoryRoot",
+        str(repository),
+        "-CheckpointPath",
+        str(checkpoint_path),
+        "-EnvPath",
+        str(env_path),
+        "-QueuePath",
+        str(queue_path),
+    )
+
+    lines = result.stdout.splitlines()
+    for provider, model, key_var in [
+        ("anthropic", "claude-haiku-4-5-20251001", "ANTHROPIC_API_KEY"),
+        ("anthropic", "claude-sonnet-5-5", "ANTHROPIC_API_KEY"),
+        ("google", "gemini-3.8-flash", "GEMINI_API_KEY"),
+        ("google", "gemini-3.1-pro-preview", "GEMINI_API_KEY"),
+    ]:
+        assert f"=== {provider}/{model}: key from {key_var} ===" in lines
+        commands = [line for line in lines if f"-Models {model} -Provider {provider} " in line]
+        assert len(commands) == 7
+    assert "ANTHROPIC_API_KEY: set" in lines
+    assert "GEMINI_API_KEY: NOT SET" in lines
+    assert "PREFLIGHT FAILED: GEMINI_API_KEY: NOT SET" in lines
+    assert "x" not in [line.strip() for line in lines]
+    assert "utf8NoBOM" not in result.stdout + result.stderr
+    summaries = list((repository / "runs" / "logs").glob("overnight-summary-*.json"))
+    assert len(summaries) == 1
+    json.loads(summaries[0].read_text(encoding="utf-8"))
+
+
+def test_provider_check_reports_each_queued_model_without_network(tmp_path: Path) -> None:
+    # No keys are set, so no provider request can be made; each model must still be
+    # reported on its own line and the result file must be written under 5.1.
+    env_path = tmp_path / "temporary.env"
+    env_path.write_text("# no keys\n", encoding="utf-8")
+    queue_path = tmp_path / "queue.json"
+    _queue(queue_path)
+    log_directory = tmp_path / "logs"
+
+    result = _run_powershell(
+        str(SCRIPTS / "check_providers.ps1"),
+        "-EnvPath",
+        str(env_path),
+        "-QueuePath",
+        str(queue_path),
+        "-LogDirectory",
+        str(log_directory),
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = result.stdout.splitlines()
+    for provider, model in [
+        ("anthropic", "claude-haiku-4-5-20251001"),
+        ("anthropic", "claude-sonnet-5-5"),
+        ("google", "gemini-3.8-flash"),
+        ("google", "gemini-3.1-pro-preview"),
+    ]:
+        assert any(line.startswith(f"{provider}/{model}: HTTP") for line in lines)
+    written = list(log_directory.glob("provider-check-*.json"))
+    assert len(written) == 1
+    results = json.loads(written[0].read_text(encoding="utf-8"))["results"]
+    assert [entry["model"] for entry in results] == [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5-5",
+        "gemini-3.8-flash",
+        "gemini-3.1-pro-preview",
+    ]
+    assert [entry["error_message"] for entry in results] == [
+        "ANTHROPIC_API_KEY is NOT SET",
+        "ANTHROPIC_API_KEY is NOT SET",
+        "GEMINI_API_KEY is NOT SET",
+        "GEMINI_API_KEY is NOT SET",
+    ]
