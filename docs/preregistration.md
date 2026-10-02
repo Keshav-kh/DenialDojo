@@ -2282,8 +2282,8 @@ dropped on cost; Sonnet is the larger Anthropic model in this study.
 
 - Anthropic: `claude-haiku-4-5-20251001` (smaller)
 - Anthropic: `claude-sonnet-5-5` (larger)
-- Google: `gemini-3.8-flash` (larger)
-- Google: `gemini-3.5-flash-lite` (smaller)
+- Google: `gemini-3.8-flash` (current release)
+- Google: `gemini-3.7-flash` (preceding release of the same model line)
 
 The Gemini IDs were chosen from the provider's model listing on 2026-10-02.
 Floating aliases (`gemini-pro-latest`, `gemini-flash-latest`) were rejected
@@ -2298,9 +2298,16 @@ within the fixed 180-second timeout
 (`runs/logs/provider-check-20261002-154649.json`). Every request in the
 protocol is longer than that check, so its records would be dominated by
 timeouts recorded as failures. The only other Pro model listed,
-`gemini-2.5-pro`, also cannot disable thinking. `gemini-3.5-flash-lite`
-replaced it, keeping a larger and smaller model per provider. No Gemini 4
+`gemini-2.5-pro`, also cannot disable thinking. No Gemini 4
 model was available to this account on 2026-10-02.
+
+`gemini-3.5-flash-lite` was then tried as the second Google model and returned
+HTTP 400 "Request contains an invalid argument" on the provider check
+(`runs/logs/provider-check-20261002-155447.json`); it was dropped without
+diagnosis, again before any scenario record. `gemini-3.7-flash` replaced it.
+The Google pair is therefore two consecutive releases of one model line rather
+than a larger and a smaller model: it tests whether the behaviour persists
+across a model update, while OpenAI and Anthropic supply the size contrast.
 
 ### Per-model transport exceptions, from the provider checks
 
@@ -2312,7 +2319,7 @@ model was available to this account on 2026-10-02.
 - `claude-haiku-4-5-20251001` and `gemini-3.8-flash` accepted the protocol's
   controls unchanged (`runs/logs/provider-check-20261002-154649.json`):
   temperature 0 and, where the provider honours it, no extended reasoning.
-- `gemini-3.5-flash-lite`: provider check pending.
+- `gemini-3.7-flash`: provider check pending.
 
 No further model enters this checkpoint. A GPT-6 or any other model requires
 its own preregistered amendment before its first request.

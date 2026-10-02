@@ -130,7 +130,7 @@ def test_checkpoint9_queue_has_the_frozen_order_and_provider_key_binding() -> No
         ("anthropic", "claude-haiku-4-5-20251001", "none", "ANTHROPIC_API_KEY", False),
         ("anthropic", "claude-sonnet-5-5", "none", "ANTHROPIC_API_KEY", True),
         ("google", "gemini-3.8-flash", "none", "GEMINI_API_KEY", False),
-        ("google", "gemini-3.5-flash-lite", "none", "GEMINI_API_KEY", False),
+        ("google", "gemini-3.7-flash", "none", "GEMINI_API_KEY", False),
     ]
 
 
