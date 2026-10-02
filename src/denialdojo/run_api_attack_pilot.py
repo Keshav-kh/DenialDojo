@@ -35,7 +35,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from denialdojo.api_adapter import ApiAdapter, ApiConfig, Transport
+from denialdojo.api_adapter import ApiAdapter, ApiConfig, Provider, Transport
 from denialdojo.guard import ApiGuard
 from denialdojo.local_artifacts import (
     StoredRun,
@@ -91,6 +91,7 @@ class AttackPilotCondition(BaseModel):
     quarantine_k: int = Field(default=2, ge=1)
     repetition: int = Field(ge=0)
     run_ordinal: int | None = Field(default=None, ge=1)
+    provider: Provider | None = None
 
     @model_validator(mode="after")
     def validate_frozen_scope(self) -> AttackPilotCondition:
@@ -129,13 +130,15 @@ class AttackPilotCondition(BaseModel):
         if self.run_ordinal is None:
             raise ValueError("attack-pilot condition is missing its factory-assigned run ordinal")
         arm = "benign" if self.benign_control else "attack"
-        return f"api-{arm}-{self.run_ordinal:03d}"
+        provider = f"-{self.provider}" if self.provider is not None else ""
+        return f"api{provider}-{arm}-{self.run_ordinal:03d}"
 
     @property
     def paired_run_group_id(self) -> str:
         arm = "benign" if self.benign_control else "attack"
+        provider = f"-{self.provider}" if self.provider is not None else ""
         return (
-            f"{CHECKPOINT}-{arm}-{self.probe_condition}-{self.injection_variant}-{self.feedback_mode.value}"
+            f"{CHECKPOINT}{provider}-{arm}-{self.probe_condition}-{self.injection_variant}-{self.feedback_mode.value}"
             f"-{self.defense_mode.value}-d{self.delay}-r{self.repetition}"
         )
 
@@ -189,6 +192,7 @@ def attack_pilot_conditions(
     defense_mode: DefenseMode | str = DefenseMode.NONE,
     quarantine_k: int = 2,
     scenario: Scenario | str = WORKSPACE_DOCUMENT_FILE_PROBE,
+    provider: Provider | None = None,
 ) -> list[AttackPilotCondition]:
     """Return the configured attack conditions followed by matched benign controls."""
 
@@ -211,6 +215,7 @@ def attack_pilot_conditions(
             defense_mode=resolved_defense_mode,
             quarantine_k=resolved_quarantine_k,
             repetition=repetition,
+            provider=provider,
         )
         for probe in _PROBE_CONDITIONS
         for injection_variant in (tuple(active_scenario.injection_variants) if probe == "natural" else ("v1",))
@@ -230,6 +235,7 @@ def attack_pilot_conditions(
             defense_mode=resolved_defense_mode,
             quarantine_k=resolved_quarantine_k,
             repetition=repetition,
+            provider=provider,
         )
         for feedback in _FEEDBACK_MODES
         for state in HiddenState
@@ -243,12 +249,13 @@ def output_directories(
     root: Path,
     model: str,
     *,
+    provider: Provider,
     scenario_id: str = WORKSPACE_DOCUMENT_FILE_PROBE.id,
 ) -> tuple[Path, Path]:
     """Return immutable attack and benign artifact directories for one model and scenario."""
 
     scenario_suffix = "" if scenario_id == WORKSPACE_DOCUMENT_FILE_PROBE.id else f"-{_model_slug(scenario_id)}"
-    prefix = f"{CHECKPOINT}-{_model_slug(model)}{scenario_suffix}"
+    prefix = f"{CHECKPOINT}-{provider}-{_model_slug(model)}{scenario_suffix}"
     return root / f"{prefix}-attack", root / f"{prefix}-benign"
 
 
@@ -351,7 +358,12 @@ def run_attack_pilot(
     runtime = _runtime_metadata(config)
     scenario = get_scenario(scenario_id)
     load_readiness_gate(readiness_summary, runtime, scenario.id)
-    attack_dir, benign_dir = output_directories(output_root, config.model, scenario_id=scenario.id)
+    attack_dir, benign_dir = output_directories(
+        output_root,
+        config.model,
+        provider=config.provider,
+        scenario_id=scenario.id,
+    )
     commit, dirty, source_tree_hash = repository_state()
     repetition_counts = _repetition_counts(
         natural_repetitions=natural_repetitions,
@@ -363,10 +375,16 @@ def run_attack_pilot(
         if resolved_defense_mode in _GUARD_DEFENSE_MODES
         else None
     )
-    conditions = attack_pilot_conditions(**{
-        f"{probe_condition}_repetitions": count
-        for probe_condition, count in repetition_counts.items()
-    }, defense_mode=resolved_defense_mode, quarantine_k=resolved_quarantine_k, scenario=scenario)
+    conditions = attack_pilot_conditions(
+        **{
+            f"{probe_condition}_repetitions": count
+            for probe_condition, count in repetition_counts.items()
+        },
+        defense_mode=resolved_defense_mode,
+        quarantine_k=resolved_quarantine_k,
+        scenario=scenario,
+        provider=config.provider,
+    )
     readiness_artifact = {
         "path": str(readiness_summary.resolve()),
         "sha256": sha256_bytes(readiness_summary.read_bytes()),
@@ -385,6 +403,7 @@ def run_attack_pilot(
                 repository_dirty=dirty,
                 source_tree_hash=source_tree_hash,
                 runtime=runtime,
+                payload_profile=config.payload_profile(),
                 hardware=collect_hardware_metadata(),
                 selected_model_capabilities=["chat_completions", "function_tools"],
                 pilot_scope={
@@ -850,8 +869,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="freeze the default 232 attack + 80 matched benign records")
+    run_parser.add_argument("--provider", choices=("openai", "anthropic", "google"), required=True)
     run_parser.add_argument("--model", default="gpt-5.6-luna")
-    run_parser.add_argument("--base-url", default="https://api.openai.com/v1")
+    run_parser.add_argument("--base-url")
     run_parser.add_argument("--reasoning-effort", default="none")
     run_parser.add_argument(
         "--scenario",
@@ -896,6 +916,7 @@ def main() -> None:
     )
 
     summary_parser = subparsers.add_parser("summary", help="print the per-cell plain-text table")
+    summary_parser.add_argument("--provider", choices=("openai", "anthropic", "google"), required=True)
     summary_parser.add_argument("--model", default="gpt-5.6-luna")
     summary_parser.add_argument("--output-root", type=Path, default=Path("runs") / "pilot")
     summary_parser.add_argument(
@@ -905,7 +926,12 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    attack_dir, benign_dir = output_directories(args.output_root, args.model, scenario_id=args.scenario)
+    attack_dir, benign_dir = output_directories(
+        args.output_root,
+        args.model,
+        provider=args.provider,
+        scenario_id=args.scenario,
+    )
     if args.command == "run":
         defense_mode = DefenseMode(args.defense_mode)
         if defense_mode in _GUARD_DEFENSE_MODES and (args.guard_model is None or not args.guard_model.strip()):
@@ -916,6 +942,7 @@ def main() -> None:
             parser.error("--quarantine-k is only valid with --defense-mode fixed_quarantine")
         outcome = run_attack_pilot(
             ApiConfig(
+                provider=args.provider,
                 model=args.model,
                 base_url=args.base_url,
                 reasoning_effort=args.reasoning_effort,

@@ -106,22 +106,33 @@ def test_api_pilot_preflight_failure_writes_evidence_and_blocks_readiness(monkey
 
     monkeypatch.setattr(run_api_pilot, "run_preflight_once", fake_preflight)
     monkeypatch.setattr(run_api_pilot, "execute_immutable_matrix", fail_if_readiness_runs)
-    config = ApiConfig(model="test-model")
+    config = ApiConfig(provider="openai", model="test-model")
 
     with pytest.raises(SystemExit, match="sequential tool-call gate"):
         run_api_pilot.run_api_pilot(config, output_root=tmp_path)
 
     assert readiness_called is False
-    assert (tmp_path / "checkpoint1g-test-model-preflight" / "manifest.json").is_file()
-    assert (tmp_path / "checkpoint1g-test-model-preflight" / "summary.json").is_file()
-    assert not (tmp_path / "checkpoint1g-test-model-readiness").exists()
+    assert (tmp_path / "checkpoint1g-openai-test-model-preflight" / "manifest.json").is_file()
+    assert (tmp_path / "checkpoint1g-openai-test-model-preflight" / "summary.json").is_file()
+    assert not (tmp_path / "checkpoint1g-openai-test-model-readiness").exists()
 
 
 def test_api_pilot_output_directories_are_stable_and_model_scoped() -> None:
-    preflight, readiness = run_api_pilot.output_directories(Path("runs") / "pilot", "gpt-5.6/luna")
+    preflight, readiness = run_api_pilot.output_directories(
+        Path("runs") / "pilot", "gpt-5.6/luna", provider="openai"
+    )
 
-    assert preflight == Path("runs") / "pilot" / "checkpoint1g-gpt-5.6-luna-preflight"
-    assert readiness == Path("runs") / "pilot" / "checkpoint1g-gpt-5.6-luna-readiness"
+    assert preflight == Path("runs") / "pilot" / "checkpoint1g-openai-gpt-5.6-luna-preflight"
+    assert readiness == Path("runs") / "pilot" / "checkpoint1g-openai-gpt-5.6-luna-readiness"
+
+
+def test_api_pilot_identity_differs_across_providers_for_same_model() -> None:
+    openai = run_api_pilot.output_directories(Path("runs"), "shared-model", provider="openai")
+    anthropic = run_api_pilot.output_directories(Path("runs"), "shared-model", provider="anthropic")
+
+    assert openai != anthropic
+    assert all("openai" in str(path) for path in openai)
+    assert all("anthropic" in str(path) for path in anthropic)
 
 
 def test_api_pilot_writes_distinct_preflight_artifacts_for_each_scenario(monkeypatch, tmp_path: Path) -> None:
@@ -139,7 +150,7 @@ def test_api_pilot_writes_distinct_preflight_artifacts_for_each_scenario(monkeyp
         return failed.model_copy(update={"repetition": kwargs["repetition"]})
 
     monkeypatch.setattr(run_api_pilot, "run_preflight_once", fake_preflight)
-    config = ApiConfig(model="test-model")
+    config = ApiConfig(provider="openai", model="test-model")
 
     with pytest.raises(SystemExit, match="sequential tool-call gate"):
         run_api_pilot.run_api_pilot(config, output_root=tmp_path)
@@ -150,25 +161,26 @@ def test_api_pilot_writes_distinct_preflight_artifacts_for_each_scenario(monkeyp
             scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
         )
 
-    default_preflight = tmp_path / "checkpoint1g-test-model-preflight"
+    default_preflight = tmp_path / "checkpoint1g-openai-test-model-preflight"
     vacation_preflight = (
-        tmp_path / "checkpoint1g-test-model-workspace_vacation_document_file_probe-preflight"
+        tmp_path / "checkpoint1g-openai-test-model-workspace_vacation_document_file_probe-preflight"
     )
-    default_directories = run_api_pilot.output_directories(tmp_path, config.model)
+    default_directories = run_api_pilot.output_directories(tmp_path, config.model, provider=config.provider)
     vacation_directories = run_api_pilot.output_directories(
         tmp_path,
         config.model,
+        provider=config.provider,
         scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
     )
     assert (default_preflight / "manifest.json").is_file()
     assert (vacation_preflight / "manifest.json").is_file()
     assert default_directories == (
         default_preflight,
-        tmp_path / "checkpoint1g-test-model-readiness",
+        tmp_path / "checkpoint1g-openai-test-model-readiness",
     )
     assert vacation_directories == (
         vacation_preflight,
-        tmp_path / "checkpoint1g-test-model-workspace_vacation_document_file_probe-readiness",
+        tmp_path / "checkpoint1g-openai-test-model-workspace_vacation_document_file_probe-readiness",
     )
     assert set(default_directories).isdisjoint(vacation_directories)
 
@@ -178,13 +190,16 @@ def test_api_pilot_cli_forwards_the_selected_scenario(monkeypatch) -> None:
     monkeypatch.setattr(
         run_api_pilot,
         "run_api_pilot",
-        lambda config, **kwargs: captured.update(kwargs) or {"preflight": {"summary": {}}, "readiness": {}},
+        lambda config, **kwargs: captured.update({"config": config, **kwargs})
+        or {"preflight": {"summary": {}}, "readiness": {}},
     )
     monkeypatch.setattr(
         sys,
         "argv",
         [
             "run_api_pilot",
+            "--provider",
+            "google",
             "--scenario",
             "workspace_document_file_probe",
         ],
@@ -193,6 +208,8 @@ def test_api_pilot_cli_forwards_the_selected_scenario(monkeypatch) -> None:
     run_api_pilot.main()
 
     assert captured["scenario_id"] == "workspace_document_file_probe"
+    assert captured["config"].provider == "google"
+    assert captured["config"].base_url == "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypatch, tmp_path: Path) -> None:
@@ -200,14 +217,16 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
     transport = ScriptedApiTransport()
 
     result = run_api_pilot.run_api_pilot(
-        ApiConfig(model="test-model"),
+        ApiConfig(provider="google", model="test-model"),
         output_root=tmp_path,
         transport=transport,
     )
 
     readiness = result["readiness"]
-    raw_directory = tmp_path / "checkpoint1g-test-model-readiness" / "raw"
-    first_raw = json.loads((raw_directory / "api-readiness-001.json").read_text(encoding="utf-8"))
+    readiness_directory = tmp_path / "checkpoint1g-google-test-model-readiness"
+    raw_directory = readiness_directory / "raw"
+    first_raw = json.loads((raw_directory / "api-google-readiness-001.json").read_text(encoding="utf-8"))
+    manifest = json.loads((readiness_directory / "manifest.json").read_text(encoding="utf-8"))
     assert result["preflight"]["summary"]["sequential_tool_call_gate_passed"] is True
     assert result["preflight"]["runtime"]["reasoning_effort"] == "none"
     assert readiness["schema_version"] == "denialdojo-readiness-summary-v3"
@@ -222,6 +241,10 @@ def test_api_pilot_writes_eight_replayable_v2_records_from_mocked_http(monkeypat
         "total_tokens": 12,
     }
     assert first_raw["trusted_run_metadata"]["runtime"]["reasoning_effort"] == "none"
+    assert first_raw["trusted_run_metadata"]["runtime"]["provider"] == "google"
     assert first_raw["trusted_run_metadata"]["scenario_id"] == "workspace_document_file_probe"
+    assert manifest["runtime"]["provider"] == "google"
+    assert manifest["payload_profile"]["provider"] == "google"
+    assert manifest["payload_profile"]["controls"]["seed"]["disposition"] == "omitted"
     assert "Authorization" not in json.dumps(first_raw)
     assert "sk-test-only-secret" not in json.dumps(first_raw)

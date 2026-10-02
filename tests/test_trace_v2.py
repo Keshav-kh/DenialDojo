@@ -404,9 +404,23 @@ def test_guard_transcript_is_stored_in_sidecar_not_replayable_records(tmp_path: 
         decision=GuardAuthorizationDecision("DENY", "External delivery is not authorized."),
     )
 
-    stored_sidecar = store.write_guard_transcript("v2-run", [transcript])
+    stored_sidecar = store.write_guard_transcript(
+        "v2-run",
+        [transcript],
+        task_provider="anthropic",
+        task_model="claude-opus-5-5",
+        guard_provider="anthropic",
+        guard_model="claude-haiku-4-5-20251001",
+    )
 
     assert stored_sidecar.path == tmp_path / "guard" / "v2-run.json"
+    sidecar = json.loads(stored_sidecar.path.read_text(encoding="utf-8"))
+    assert sidecar["metadata"] == {
+        "guard_model": "claude-haiku-4-5-20251001",
+        "guard_provider": "anthropic",
+        "task_model": "claude-opus-5-5",
+        "task_provider": "anthropic",
+    }
     assert "Trusted task prompt for the guard." in stored_sidecar.path.read_text(encoding="utf-8")
     assert "Trusted task prompt for the guard." not in stored_raw.path.read_text(encoding="utf-8")
     assert replay_run_artifacts(stored_raw.path, stored_derived.path) == derived
@@ -430,7 +444,14 @@ def test_guard_transcript_sidecar_retains_the_raw_guard_response(tmp_path: Path)
         raw_response="DENY: External delivery is not authorized.",
     )
 
-    stored_sidecar = store.write_guard_transcript("v2-run", [transcript])
+    stored_sidecar = store.write_guard_transcript(
+        "v2-run",
+        [transcript],
+        task_provider="openai",
+        task_model="task-model",
+        guard_provider="openai",
+        guard_model="guard-model",
+    )
 
     assert "DENY: External delivery is not authorized." in stored_sidecar.path.read_text(encoding="utf-8")
 

@@ -51,6 +51,7 @@ def _messages():
 
 def _config(**updates) -> ApiConfig:
     values = {
+        "provider": "openai",
         "model": "gpt-5.6-luna",
         "base_url": "https://api.openai.com/v1",
         "temperature": 0,
@@ -218,7 +219,12 @@ def test_transport_error_never_stores_environment_credential(monkeypatch) -> Non
 
 
 def test_api_configuration_defaults_and_rejects_invalid_limits() -> None:
-    config = ApiConfig()
+    with pytest.raises(ValueError, match="provider"):
+        ApiConfig()
+    with pytest.raises(ValueError, match="provider"):
+        ApiConfig(provider="unknown")
+
+    config = ApiConfig(provider="openai")
 
     assert config.base_url == "https://api.openai.com/v1"
     assert config.model == "gpt-5.6-luna"
@@ -239,6 +245,54 @@ def test_api_configuration_defaults_and_rejects_invalid_limits() -> None:
     with pytest.raises(ValueError, match="seed"):
         _config(seed=1)
     assert isinstance(_config().model_dump(), Mapping)
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_base_url"),
+    [
+        ("openai", "https://api.openai.com/v1"),
+        ("anthropic", "https://api.anthropic.com/v1/"),
+        ("google", "https://generativelanguage.googleapis.com/v1beta/openai/"),
+    ],
+)
+def test_api_configuration_uses_frozen_provider_base_urls(provider: str, expected_base_url: str) -> None:
+    assert ApiConfig(provider=provider).base_url == expected_base_url
+
+
+@pytest.mark.parametrize(
+    ("provider", "sent_controls", "omitted_controls"),
+    [
+        ("openai", {"temperature", "reasoning_effort", "seed"}, set()),
+        ("anthropic", {"temperature"}, {"reasoning_effort", "seed"}),
+        ("google", {"temperature", "reasoning_effort"}, {"seed"}),
+    ],
+)
+def test_payload_profile_records_sent_and_omitted_controls(
+    monkeypatch,
+    provider: str,
+    sent_controls: set[str],
+    omitted_controls: set[str],
+) -> None:
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
+    transport = FakeApiTransport(
+        [{"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "done"}}]}]
+    )
+    adapter = ApiAdapter(ApiConfig(provider=provider), transport=transport)
+
+    adapter.query("", FunctionsRuntime([make_function(echo_value)]), messages=_messages())
+
+    payload = transport.calls[0][2]
+    profile = adapter.payload_profile
+    assert {name for name, decision in profile["controls"].items() if decision["disposition"] == "sent"} == (
+        sent_controls
+    )
+    assert {name for name, decision in profile["controls"].items() if decision["disposition"] == "omitted"} == (
+        omitted_controls
+    )
+    assert sent_controls <= payload.keys()
+    assert omitted_controls.isdisjoint(payload)
+    assert profile["provider"] == provider
+    assert profile["extended_reasoning"]["requested"] == "disabled"
 
 
 def test_api_adapter_completes_frozen_sequential_preflight_with_mocked_http(monkeypatch) -> None:

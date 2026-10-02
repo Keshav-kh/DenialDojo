@@ -19,12 +19,18 @@ MIN_NATURAL_DELIVERY = 0.95
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--provider", choices=("openai", "anthropic", "google"), required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--scenario", required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     args = parser.parse_args()
 
-    attack_dir, _ = output_directories(args.output_root, args.model, scenario_id=args.scenario)
+    attack_dir, _ = output_directories(
+        args.output_root,
+        args.model,
+        provider=args.provider,
+        scenario_id=args.scenario,
+    )
     records = _load_arm(attack_dir)
 
     natural: dict[str, list[int]] = defaultdict(lambda: [0, 0])

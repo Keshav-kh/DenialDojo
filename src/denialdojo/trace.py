@@ -54,7 +54,7 @@ class StrictTraceModel(BaseModel):
 
 
 class ModelRuntimeMetadata(StrictTraceModel):
-    provider: Literal["scripted", "ollama", "openai"]
+    provider: Literal["scripted", "ollama", "openai", "anthropic", "google"]
     runtime_version: str
     model_tag: str
     model_digest: str | None

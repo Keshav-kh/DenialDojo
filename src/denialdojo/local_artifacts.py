@@ -75,7 +75,16 @@ def execute_immutable_matrix(
         )
         stored_raw = store.write_raw(execution.raw)
         if condition.defense_mode in {DefenseMode.GUARD_BLIND, DefenseMode.GUARD_INFORMED}:
-            store.write_guard_transcript(condition.run_id, execution.guard_transcript)
+            resolved_guard_provider = runtime.provider if guard_model is not None else "in_process"
+            resolved_guard_model = guard_model or "injected-guard-callable"
+            store.write_guard_transcript(
+                condition.run_id,
+                execution.guard_transcript,
+                task_provider=runtime.provider,
+                task_model=runtime.model_tag,
+                guard_provider=resolved_guard_provider,
+                guard_model=resolved_guard_model,
+            )
         derived = derive_run(execution.raw, stored_raw.sha256)
         stored_derived = store.write_derived(derived)
         replay_run_artifacts(stored_raw.path, stored_derived.path)

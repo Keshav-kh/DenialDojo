@@ -28,6 +28,20 @@ and protocol outputs and binds to the exact raw bytes with SHA-256.
 the authoritative records. `summary.json` is a derived aggregate, not raw
 evidence or complete research data.
 
+Checkpoint 9A hosted runs add a required provider axis at configuration time.
+The provider (`openai`, `anthropic`, or `google`) is frozen in runtime metadata,
+artifact-directory names, run and paired-group IDs, and the manifest. Hosted
+manifests also contain `payload_profile`: for each of `temperature`,
+`reasoning_effort`, and `seed`, it records the configured value and whether the
+field was sent or deliberately omitted, with the compatibility reason. This
+keeps provider-specific OpenAI-compatibility behavior auditable rather than
+silently dropping unsupported controls. Historical manifests remain readable
+without that optional field.
+
+Guard-only sidecars under `guard/<run-id>.json` freeze task-provider,
+task-model, guard-provider, and guard-model provenance. They remain audit
+evidence outside deterministic replay inputs.
+
 Provenance markers distinguish `raw_capture`, `trusted_run_metadata`,
 `deterministically_derived`, and separate manual documentation. The hidden
 state occurs only in trusted run metadata. Validation rejects the assignment

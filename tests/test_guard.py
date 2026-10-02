@@ -42,7 +42,7 @@ def _api_guard(monkeypatch, response: str) -> tuple[ApiGuard, GuardTransport]:
     return (
         ApiGuard(
             guard_model="guard-test-model",
-            task_config=ApiConfig(model="task-test-model", reasoning_effort="medium"),
+            task_config=ApiConfig(provider="openai", model="task-test-model", reasoning_effort="medium"),
             transport=transport,
         ),
         transport,

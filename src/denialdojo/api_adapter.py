@@ -1,4 +1,4 @@
-"""Hosted OpenAI Chat Completions adapter for AgentDojo pipeline elements."""
+"""Hosted OpenAI-compatible Chat Completions adapter for AgentDojo pipeline elements."""
 
 from __future__ import annotations
 
@@ -8,19 +8,26 @@ import os
 import socket
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
 from agentdojo.agent_pipeline import BasePipelineElement
 from agentdojo.functions_runtime import EmptyEnv, Env, FunctionCall, FunctionsRuntime
 from agentdojo.types import ChatAssistantMessage, ChatMessage, get_text_content_as_str, text_content_block_from_string
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from denialdojo.capture import CapturedExchange
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus, redact_value
 
 Transport = Callable[[str, dict[str, str], dict, float], dict]
+Provider = Literal["openai", "anthropic", "google"]
+
+PROVIDER_BASE_URLS: dict[Provider, str] = {
+    "openai": "https://api.openai.com/v1",
+    "anthropic": "https://api.anthropic.com/v1/",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+}
 
 
 class ApiConfig(BaseModel):
@@ -28,14 +35,107 @@ class ApiConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    provider: Provider
     model: str = Field(default="gpt-5.6-luna", min_length=1)
-    base_url: str = Field(default="https://api.openai.com/v1", min_length=1)
+    base_url: str | None = Field(default=None, min_length=1)
     temperature: float = Field(default=0, ge=0, le=0)
     reasoning_effort: str = Field(default="none", min_length=1)
     maximum_steps: int = Field(default=12, ge=1)
     timeout_seconds: float = Field(default=180, ge=180, le=180)
     retry_count: int = Field(default=0, ge=0, le=0)
     seed: int = Field(default=0, ge=0, le=0)
+
+    @model_validator(mode="after")
+    def resolve_provider_base_url(self) -> ApiConfig:
+        if self.base_url is None:
+            self.base_url = PROVIDER_BASE_URLS[self.provider]
+        return self
+
+    def payload_profile(self) -> dict[str, Any]:
+        """Describe every compatibility control as sent or deliberately omitted."""
+
+        decisions: dict[Provider, dict[str, dict[str, Any]]] = {
+            "openai": {
+                "temperature": {
+                    "disposition": "sent",
+                    "value": float(self.temperature),
+                    "reason": "OpenAI Chat Completions supports temperature.",
+                },
+                "reasoning_effort": {
+                    "disposition": "sent",
+                    "value": self.reasoning_effort,
+                    "reason": "OpenAI Chat Completions supports reasoning_effort.",
+                },
+                "seed": {
+                    "disposition": "sent",
+                    "value": self.seed,
+                    "reason": "OpenAI Chat Completions accepts the deprecated beta seed field.",
+                },
+            },
+            "anthropic": {
+                "temperature": {
+                    "disposition": "sent",
+                    "value": float(self.temperature),
+                    "reason": "Anthropic OpenAI compatibility supports temperature from 0 through 1.",
+                },
+                "reasoning_effort": {
+                    "disposition": "omitted",
+                    "configured_value": self.reasoning_effort,
+                    "reason": "Anthropic OpenAI compatibility silently ignores reasoning_effort.",
+                },
+                "seed": {
+                    "disposition": "omitted",
+                    "configured_value": self.seed,
+                    "reason": "Anthropic OpenAI compatibility silently ignores seed.",
+                },
+            },
+            "google": {
+                "temperature": {
+                    "disposition": "sent",
+                    "value": float(self.temperature),
+                    "reason": "Gemini generation supports temperature 0.",
+                },
+                "reasoning_effort": {
+                    "disposition": "sent",
+                    "value": self.reasoning_effort,
+                    "reason": (
+                        "Gemini OpenAI compatibility maps reasoning_effort; none disables thinking only "
+                        "on models that support disabling it."
+                    ),
+                },
+                "seed": {
+                    "disposition": "omitted",
+                    "configured_value": self.seed,
+                    "reason": "Gemini OpenAI Chat Completions compatibility does not document seed support.",
+                },
+            },
+        }
+        reasoning_effective = {
+            "openai": "disabled",
+            "anthropic": "provider_model_default",
+            "google": "model_dependent",
+        }[self.provider]
+        reasoning_reason = {
+            "openai": "reasoning_effort=none is sent.",
+            "anthropic": (
+                "reasoning_effort is ignored by the compatibility layer; some Claude models, including "
+                "claude-opus-5-5, do not permit thinking to be disabled."
+            ),
+            "google": (
+                "reasoning_effort=none is requested, but Gemini Pro and Gemini 3 models may require "
+                "thinking; the exact model ID must be checked before a paid run."
+            ),
+        }[self.provider]
+        return {
+            "provider": self.provider,
+            "base_url": self.base_url,
+            "controls": decisions[self.provider],
+            "extended_reasoning": {
+                "requested": "disabled",
+                "effective": reasoning_effective,
+                "reason": reasoning_reason,
+            },
+        }
 
 
 def _http_transport(url: str, headers: dict[str, str], payload: dict, timeout: float) -> dict:
@@ -115,7 +215,7 @@ def _looks_like_refusal(content: str) -> bool:
 class ApiAdapter(BasePipelineElement):
     """Issue one hosted Chat Completions request per turn without hidden retries."""
 
-    name = "hosted-openai-chat-completions"
+    name = "hosted-openai-compatible-chat-completions"
 
     def __init__(self, config: ApiConfig, *, transport: Transport | None = None) -> None:
         self.config = config
@@ -129,6 +229,10 @@ class ApiAdapter(BasePipelineElement):
         self.last_messages: list[ChatMessage] = []
         self.reported_model: str | None = None
         self.token_usage: dict[str, Any] | None = None
+
+    @property
+    def payload_profile(self) -> dict[str, Any]:
+        return self.config.payload_profile()
 
     def _remember(
         self,
@@ -248,10 +352,10 @@ class ApiAdapter(BasePipelineElement):
             "messages": _to_openai_messages(messages),
             "tools": _tool_schemas(runtime),
             "tool_choice": "auto",
-            "temperature": float(self.config.temperature),
-            "reasoning_effort": self.config.reasoning_effort,
-            "seed": self.config.seed,
         }
+        for field, decision in self.payload_profile["controls"].items():
+            if decision["disposition"] == "sent":
+                payload[field] = decision["value"]
         try:
             response = self._request(payload)
         except TimeoutError as error:
@@ -361,22 +465,30 @@ class ApiAdapter(BasePipelineElement):
 def runtime_metadata_from_adapter(adapter: ApiAdapter) -> ModelRuntimeMetadata:
     """Freeze the hosted provider settings and response-reported runtime facts."""
 
+    controls = adapter.payload_profile["controls"]
     return ModelRuntimeMetadata(
-        provider="openai",
+        provider=adapter.config.provider,
         runtime_version="chat-completions-v1",
         model_tag=adapter.config.model,
         model_digest=None,
         quantization=None,
         context_window=None,
-        temperature=adapter.config.temperature,
-        reasoning_effort=adapter.config.reasoning_effort,
+        temperature=controls["temperature"].get("value", adapter.config.temperature),
+        reasoning_effort=controls["reasoning_effort"].get("value"),
         maximum_steps=adapter.config.maximum_steps,
         timeout_seconds=adapter.config.timeout_seconds,
         retry_count=adapter.config.retry_count,
-        seed=adapter.config.seed,
+        seed=controls["seed"].get("value"),
         reported_model=adapter.reported_model,
         token_usage=adapter.token_usage,
     )
 
 
-__all__ = ["ApiAdapter", "ApiConfig", "Transport", "runtime_metadata_from_adapter"]
+__all__ = [
+    "PROVIDER_BASE_URLS",
+    "ApiAdapter",
+    "ApiConfig",
+    "Provider",
+    "Transport",
+    "runtime_metadata_from_adapter",
+]

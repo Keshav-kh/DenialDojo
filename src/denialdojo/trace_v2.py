@@ -156,6 +156,7 @@ class PilotManifestV2(StrictModel):
     repository_dirty: bool
     source_tree_hash: str | None
     runtime: ModelRuntimeMetadata
+    payload_profile: dict[str, Any] | None = None
     hardware: dict[str, Any]
     selected_model_capabilities: list[str]
     pilot_scope: dict[str, Any]
@@ -225,6 +226,11 @@ class RunArtifactStore:
         self,
         run_id: str,
         transcript: Sequence[GuardAuthorizationTranscript],
+        *,
+        task_provider: str,
+        task_model: str,
+        guard_provider: str,
+        guard_model: str,
     ) -> StoredArtifact:
         """Freeze guard-only evidence at ``guard/<run-id>.json``, outside replay inputs."""
 
@@ -233,7 +239,16 @@ class RunArtifactStore:
             raise FileNotFoundError(f"raw artifact does not exist for {run_id}")
         payload = (
             json.dumps(
-                {"run_id": run_id, "authorizations": [asdict(item) for item in transcript]},
+                {
+                    "run_id": run_id,
+                    "metadata": {
+                        "task_provider": task_provider,
+                        "task_model": task_model,
+                        "guard_provider": guard_provider,
+                        "guard_model": guard_model,
+                    },
+                    "authorizations": [asdict(item) for item in transcript],
+                },
                 indent=2,
                 sort_keys=True,
             )

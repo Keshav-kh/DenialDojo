@@ -7,12 +7,17 @@
 #
 # Example:
 #   .\scripts\run_scenario.ps1 -Scenario travel_hotel_review_probe `
-#                              -SmokeRoot runs/pilot7d-smoke -FinalRoot runs/pilot7d
+#                              -SmokeRoot runs/pilot7d-smoke -FinalRoot runs/pilot7d `
+#                              -Models gpt-5.6-luna,gpt-5.6-terra `
+#                              -Provider openai,openai
 
 param(
     [Parameter(Mandatory = $true)][string]$Scenario,
     [Parameter(Mandatory = $true)][string]$SmokeRoot,
     [Parameter(Mandatory = $true)][string]$FinalRoot,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("openai", "anthropic", "google")]
+    [string[]]$Provider,
     [string[]]$Models = @("gpt-5.6-luna", "gpt-5.6-terra")
 )
 
@@ -26,13 +31,13 @@ Start-Transcript -Path $Log -Append | Out-Null
 function Say($msg) { Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) }
 function Fail($msg) { Say "ABORT: $msg"; Say "Log: $Log"; Stop-Transcript | Out-Null; exit 1 }
 
-function Readiness-Summary($model) { "runs/pilot/checkpoint1g-$model-$Scenario-readiness/summary.json" }
+function Readiness-Summary($provider, $model) { "runs/pilot/checkpoint1g-$provider-$model-$Scenario-readiness/summary.json" }
 
 # Artifact paths are claimed exclusively and never overwritten, so a previous FAILED
 # attempt blocks a retry. Retain it by moving it aside; never delete it. Existence of
 # a summary is not success: a gate that ran and failed also writes one.
-function Ensure-Readiness($model) {
-    $summary = Readiness-Summary $model
+function Ensure-Readiness($provider, $model) {
+    $summary = Readiness-Summary $provider $model
     if (Test-Path $summary) {
         $passed = $false
         try { $passed = [bool](Get-Content $summary -Raw | ConvertFrom-Json).benign_readiness_gate_passed } catch { $passed = $false }
@@ -40,7 +45,7 @@ function Ensure-Readiness($model) {
         Say "existing readiness summary for $model did NOT pass its gate; archiving and re-running"
     }
     foreach ($suffix in @("-preflight", "-readiness")) {
-        $dir = "runs/pilot/checkpoint1g-$model-$Scenario$suffix"
+        $dir = "runs/pilot/checkpoint1g-$provider-$model-$Scenario$suffix"
         if (Test-Path $dir) {
             New-Item -ItemType Directory -Force -Path "runs/archive-failed" | Out-Null
             $dest = Join-Path "runs/archive-failed" ((Split-Path $dir -Leaf) + "-failed-" + $Stamp)
@@ -48,49 +53,61 @@ function Ensure-Readiness($model) {
             Say "archived incomplete artifacts: $dir -> $dest"
         }
     }
-    py -3.14 -m uv run python -m denialdojo.run_api_pilot --model $model --scenario $Scenario
+    py -3.14 -m uv run python -m denialdojo.run_api_pilot `
+        --provider $provider --model $model --scenario $Scenario
     if ($LASTEXITCODE -ne 0) { Fail "readiness gate failed for $model (exit $LASTEXITCODE)" }
     if (-not (Test-Path $summary)) { Fail "readiness summary missing for ${model}: $summary" }
 }
 
 if (-not $env:DENIALDOJO_API_KEY) { Fail "DENIALDOJO_API_KEY is not set in this terminal" }
-Say ("key is set, length {0}" -f $env:DENIALDOJO_API_KEY.Length)
+if ($Provider.Count -ne $Models.Count) { Fail "-Provider must contain exactly one entry per -Models entry" }
+Say "API key is set"
 Say "scenario: $Scenario"
 Say "models:   $($Models -join ', ')"
+Say "providers: $($Provider -join ', ')"
 Say "log:      $Log"
 
-foreach ($model in $Models) {
-    Say "readiness gate, $model"
-    Ensure-Readiness $model
+for ($index = 0; $index -lt $Models.Count; $index++) {
+    $model = $Models[$index]
+    $provider = $Provider[$index]
+    Say "readiness gate, $provider/$model"
+    Ensure-Readiness $provider $model
 }
 
 # Every model is smoked and gated, not only one. Checkpoint 8D: gating only gpt-5.6-luna let a
 # scenario whose carrier gpt-5.6-terra never reached proceed to a full confirmatory run.
-foreach ($model in $Models) {
-    Say "exploratory smoke run, $model, 1 repetition per cell"
+for ($index = 0; $index -lt $Models.Count; $index++) {
+    $model = $Models[$index]
+    $provider = $Provider[$index]
+    Say "exploratory smoke run, $provider/$model, 1 repetition per cell"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
-        --model $model --scenario $Scenario `
-        --readiness-summary (Readiness-Summary $model) --output-root $SmokeRoot `
+        --provider $provider --model $model --scenario $Scenario `
+        --readiness-summary (Readiness-Summary $provider $model) --output-root $SmokeRoot `
         --natural-repetitions 1 --forced-repetitions 1 --positive-control-repetitions 1
     if ($LASTEXITCODE -ne 0) { Fail "smoke run failed for $model (exit $LASTEXITCODE)" }
 
     Say "smoke gate, $model"
-    py -3.14 -m uv run python analysis/smoke_gate.py --model $model --scenario $Scenario --output-root $SmokeRoot
+    py -3.14 -m uv run python analysis/smoke_gate.py `
+        --provider $provider --model $model --scenario $Scenario --output-root $SmokeRoot
     if ($LASTEXITCODE -ne 0) { Fail "smoke gate failed for $model; confirmatory runs were NOT started" }
 }
 
-foreach ($model in $Models) {
-    Say "confirmatory run, $model, 232 attack + 80 benign"
+for ($index = 0; $index -lt $Models.Count; $index++) {
+    $model = $Models[$index]
+    $provider = $Provider[$index]
+    Say "confirmatory run, $provider/$model, 232 attack + 80 benign"
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot run `
-        --model $model --scenario $Scenario `
-        --readiness-summary (Readiness-Summary $model) --output-root $FinalRoot
+        --provider $provider --model $model --scenario $Scenario `
+        --readiness-summary (Readiness-Summary $provider $model) --output-root $FinalRoot
     if ($LASTEXITCODE -ne 0) { Fail "confirmatory run failed for $model (exit $LASTEXITCODE)" }
 }
 
 Say "summaries"
-foreach ($model in $Models) {
+for ($index = 0; $index -lt $Models.Count; $index++) {
+    $model = $Models[$index]
+    $provider = $Provider[$index]
     py -3.14 -m uv run python -m denialdojo.run_api_attack_pilot summary `
-        --model $model --scenario $Scenario --output-root $FinalRoot
+        --provider $provider --model $model --scenario $Scenario --output-root $FinalRoot
 }
 
 Say "ALL STEPS COMPLETE"

@@ -238,7 +238,7 @@ def small_matrix(tmp_path_factory) -> tuple[Path, dict[str, dict]]:
     patch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
     try:
         output_root = tmp_path_factory.mktemp("small-matrix")
-        config = ApiConfig(model="test-model")
+        config = ApiConfig(provider="openai", model="test-model")
         readiness = _passing_readiness(output_root, config)
         outcome = run_attack_pilot(
             config,
@@ -262,13 +262,14 @@ def pair_integrity_matrix(tmp_path_factory) -> Path:
     patch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
     try:
         output_root = tmp_path_factory.mktemp("pair-integrity-matrix")
-        config = ApiConfig(model="test-model")
+        config = ApiConfig(provider="openai", model="test-model")
         conditions = [
             condition
             for condition in attack_pilot_conditions(
                 natural_repetitions=1,
                 forced_repetitions=2,
                 positive_control_repetitions=10,
+                provider="openai",
             )
             if condition.probe_condition == "positive_control"
             and condition.feedback_mode == FeedbackMode.REASON_BEARING
@@ -277,7 +278,7 @@ def pair_integrity_matrix(tmp_path_factory) -> Path:
         commit, dirty, source_tree_hash = run_api_attack_pilot.repository_state()
         execute_immutable_matrix(
             conditions,
-            store=RunArtifactStore(output_root / "checkpoint4a-test-model-attack"),
+            store=RunArtifactStore(output_root / "checkpoint4a-openai-test-model-attack"),
             config=config,
             runtime=run_api_attack_pilot._runtime_metadata(config),
             repository_commit=commit,
@@ -388,7 +389,7 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
     monkeypatch.setattr(
         run_api_attack_pilot,
         "run_attack_pilot",
-        lambda config, **kwargs: captured.update(kwargs) or {"attack": {}, "benign": {}},
+        lambda config, **kwargs: captured.update(config=config, **kwargs) or {"attack": {}, "benign": {}},
     )
     monkeypatch.setattr(run_api_attack_pilot, "summarize", lambda *_, **__: "summary")
     monkeypatch.setattr(
@@ -397,6 +398,8 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
         [
             "run_api_attack_pilot",
             "run",
+            "--provider",
+            "google",
             "--readiness-summary",
             str(tmp_path / "readiness.json"),
             "--natural-repetitions",
@@ -417,6 +420,7 @@ def test_run_cli_forwards_per_probe_repetition_flags(monkeypatch, tmp_path: Path
     run_api_attack_pilot.main()
 
     assert captured["natural_repetitions"] == 4
+    assert captured["config"].provider == "google"
     assert captured["forced_repetitions"] == 5
     assert captured["positive_control_repetitions"] == 6
     assert captured["defense_mode"] == DefenseMode.FIXED_QUARANTINE
@@ -434,6 +438,8 @@ def test_run_cli_rejects_quarantine_k_for_non_quarantine_modes(
         [
             "run_api_attack_pilot",
             "run",
+            "--provider",
+            "openai",
             "--readiness-summary",
             str(tmp_path / "readiness.json"),
             "--defense-mode",
@@ -462,6 +468,8 @@ def test_run_cli_requires_a_non_blank_guard_model_for_guard_modes(
     argv = [
         "run_api_attack_pilot",
         "run",
+        "--provider",
+        "openai",
         "--readiness-summary",
         str(tmp_path / "readiness.json"),
         "--defense-mode",
@@ -487,6 +495,8 @@ def test_run_cli_rejects_a_guard_model_for_non_guard_modes(monkeypatch, tmp_path
         [
             "run_api_attack_pilot",
             "run",
+            "--provider",
+            "openai",
             "--readiness-summary",
             str(tmp_path / "readiness.json"),
             "--defense-mode",
@@ -506,7 +516,7 @@ def test_run_cli_rejects_a_guard_model_for_non_guard_modes(monkeypatch, tmp_path
 def test_guard_run_constructs_and_threads_the_configured_api_guard(monkeypatch, tmp_path: Path) -> None:
     """Removing the guard handoff would silently leave a configured guard run unmediated."""
 
-    config = ApiConfig(model="task-test-model")
+    config = ApiConfig(provider="openai", model="task-test-model")
     readiness = _passing_readiness(tmp_path, config)
     constructed: list[tuple[str, ApiConfig, object]] = []
     executions: list[dict] = []
@@ -591,7 +601,7 @@ def _live_defense_execution(
     defense_mode: DefenseMode,
 ):
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
-    config = ApiConfig(model="test-model")
+    config = ApiConfig(provider="openai", model="test-model")
     condition = AttackPilotCondition(
         hidden_state=hidden_state,
         probe_condition="positive_control",
@@ -619,7 +629,7 @@ def test_guard_run_records_the_guard_model_in_existing_defense_parameters(monkey
     """Dropping the configured guard model makes a guard-mode record non-auditable."""
 
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
-    config = ApiConfig(model="task-test-model")
+    config = ApiConfig(provider="openai", model="task-test-model")
     condition = AttackPilotCondition(
         hidden_state=HiddenState.ABSENT,
         probe_condition="positive_control",
@@ -719,17 +729,39 @@ def test_live_runner_returns_one_constant_block_message_across_counterfactual_ar
 
 def test_attack_pilot_output_directories_are_scenario_scoped() -> None:
     root = Path("runs") / "pilot"
-    default_attack, default_benign = output_directories(root, "gpt-5.6/luna")
+    default_attack, default_benign = output_directories(root, "gpt-5.6/luna", provider="openai")
     vacation_attack, vacation_benign = output_directories(
         root,
         "gpt-5.6/luna",
+        provider="openai",
         scenario_id=WORKSPACE_VACATION_DOCUMENT_FILE_PROBE.id,
     )
 
-    assert default_attack == root / "checkpoint4a-gpt-5.6-luna-attack"
-    assert default_benign == root / "checkpoint4a-gpt-5.6-luna-benign"
+    assert default_attack == root / "checkpoint4a-openai-gpt-5.6-luna-attack"
+    assert default_benign == root / "checkpoint4a-openai-gpt-5.6-luna-benign"
     assert vacation_attack != default_attack
     assert vacation_benign != default_benign
+
+    anthropic = output_directories(root, "gpt-5.6/luna", provider="anthropic")
+    assert anthropic != (default_attack, default_benign)
+
+
+def test_attack_record_identity_differs_across_providers_for_same_model() -> None:
+    openai = attack_pilot_conditions(
+        natural_repetitions=1,
+        forced_repetitions=1,
+        positive_control_repetitions=1,
+        provider="openai",
+    )[0]
+    anthropic = attack_pilot_conditions(
+        natural_repetitions=1,
+        forced_repetitions=1,
+        positive_control_repetitions=1,
+        provider="anthropic",
+    )[0]
+
+    assert openai.run_id != anthropic.run_id
+    assert openai.paired_run_group_id != anthropic.paired_run_group_id
 
 
 @pytest.mark.parametrize(
@@ -745,7 +777,7 @@ def test_attack_pilot_refuses_to_start_on_failing_readiness_summary(
     monkeypatch, tmp_path: Path, mutation: dict
 ) -> None:
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
-    config = ApiConfig(model="test-model")
+    config = ApiConfig(provider="openai", model="test-model")
     readiness = _passing_readiness(tmp_path, config)
     payload = json.loads(readiness.read_text(encoding="utf-8"))
     payload.update(mutation)
@@ -772,7 +804,7 @@ def test_attack_pilot_refuses_to_start_on_failing_readiness_summary(
 
 def test_attack_pilot_refuses_readiness_summary_for_a_different_scenario(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
-    config = ApiConfig(model="test-model")
+    config = ApiConfig(provider="openai", model="test-model")
     readiness = _passing_readiness(tmp_path, config)
     started = {"matrix": False}
     monkeypatch.setattr(
@@ -799,11 +831,11 @@ def test_attack_pilot_refuses_readiness_summary_for_a_different_scenario(monkeyp
 
 def test_attack_pilot_refuses_to_start_when_readiness_runtime_differs(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DENIALDOJO_API_KEY", "sk-test-only-secret")
-    readiness = _passing_readiness(tmp_path, ApiConfig(model="a-different-model"))
+    readiness = _passing_readiness(tmp_path, ApiConfig(provider="openai", model="a-different-model"))
 
     with pytest.raises(SystemExit, match="runtime"):
         run_attack_pilot(
-            ApiConfig(model="test-model"),
+            ApiConfig(provider="openai", model="test-model"),
             readiness_summary=readiness,
             output_root=tmp_path / "out",
             transport=AttackScriptedTransport(),
@@ -812,8 +844,8 @@ def test_attack_pilot_refuses_to_start_when_readiness_runtime_differs(monkeypatc
 
 def test_attack_pilot_writes_small_replayable_records(small_matrix) -> None:
     output_root, outcome = small_matrix
-    attack_dir = output_root / "checkpoint4a-test-model-attack"
-    benign_dir = output_root / "checkpoint4a-test-model-benign"
+    attack_dir = output_root / "checkpoint4a-openai-test-model-attack"
+    benign_dir = output_root / "checkpoint4a-openai-test-model-benign"
     assert outcome["attack"]["records"] == 56
     assert outcome["benign"]["records"] == 16
     assert len(list((attack_dir / "raw").glob("*.json"))) == 56
@@ -830,6 +862,9 @@ def test_attack_pilot_writes_small_replayable_records(small_matrix) -> None:
     assert "Authorization" not in json.dumps(outcome)
 
     attack_manifest = PilotManifestV2.model_validate_json((attack_dir / "manifest.json").read_bytes())
+    assert attack_manifest.runtime.provider == "openai"
+    assert attack_manifest.payload_profile is not None
+    assert attack_manifest.payload_profile["provider"] == "openai"
     assert attack_manifest.pilot_scope["repetitions_by_probe_condition"] == {
         "natural": 1,
         "forced": 2,
@@ -848,14 +883,19 @@ def test_attack_pilot_writes_small_replayable_records(small_matrix) -> None:
 
 def test_positive_control_is_recorded_and_uses_the_shared_workspace_bytes(small_matrix) -> None:
     output_root, _ = small_matrix
-    raw_dir = output_root / "checkpoint4a-test-model-attack" / "raw"
-    natural = RawRunRecord.model_validate_json((raw_dir / "api-attack-001.json").read_bytes())
-    natural_v2 = RawRunRecord.model_validate_json((raw_dir / "api-attack-009.json").read_bytes())
-    forced = RawRunRecord.model_validate_json((raw_dir / "api-attack-025.json").read_bytes())
-    positive = RawRunRecord.model_validate_json((raw_dir / "api-attack-041.json").read_bytes())
-    positive_protected = RawRunRecord.model_validate_json((raw_dir / "api-attack-045.json").read_bytes())
+    raw_dir = output_root / "checkpoint4a-openai-test-model-attack" / "raw"
+    natural = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-001.json").read_bytes())
+    natural_v2 = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-009.json").read_bytes())
+    forced = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-025.json").read_bytes())
+    positive = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-041.json").read_bytes())
+    positive_protected = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-045.json").read_bytes())
     benign = RawRunRecord.model_validate_json(
-        (output_root / "checkpoint4a-test-model-benign" / "raw" / "api-benign-001.json").read_bytes()
+        (
+            output_root
+            / "checkpoint4a-openai-test-model-benign"
+            / "raw"
+            / "api-openai-benign-001.json"
+        ).read_bytes()
     )
 
     assert natural.trusted_run_metadata.probe_condition == "natural"
@@ -884,14 +924,18 @@ def test_positive_control_is_recorded_and_uses_the_shared_workspace_bytes(small_
 
 def test_positive_control_uses_the_interposed_sink_and_v3_decoder(small_matrix) -> None:
     output_root, _ = small_matrix
-    attack_dir = output_root / "checkpoint4a-test-model-attack"
+    attack_dir = output_root / "checkpoint4a-openai-test-model-attack"
     raw_dir = attack_dir / "raw"
     derived_dir = attack_dir / "derived"
-    reason_absent = DerivedRunRecord.model_validate_json((derived_dir / "api-attack-041.json").read_bytes())
-    reason_protected = DerivedRunRecord.model_validate_json((derived_dir / "api-attack-045.json").read_bytes())
-    uniform_absent = DerivedRunRecord.model_validate_json((derived_dir / "api-attack-049.json").read_bytes())
-    uniform_protected = DerivedRunRecord.model_validate_json((derived_dir / "api-attack-053.json").read_bytes())
-    raw = RawRunRecord.model_validate_json((raw_dir / "api-attack-041.json").read_bytes())
+    reason_absent = DerivedRunRecord.model_validate_json((derived_dir / "api-openai-attack-041.json").read_bytes())
+    reason_protected = DerivedRunRecord.model_validate_json(
+        (derived_dir / "api-openai-attack-045.json").read_bytes()
+    )
+    uniform_absent = DerivedRunRecord.model_validate_json((derived_dir / "api-openai-attack-049.json").read_bytes())
+    uniform_protected = DerivedRunRecord.model_validate_json(
+        (derived_dir / "api-openai-attack-053.json").read_bytes()
+    )
+    raw = RawRunRecord.model_validate_json((raw_dir / "api-openai-attack-041.json").read_bytes())
 
     assert any(event.tool_name == "send_email" for event in raw.mediated_events)
     assert raw.final_workspace_sink_state[0].recipients == ["outside@example.net"]
@@ -950,7 +994,7 @@ def test_paired_cond_leak_excludes_a_pair_without_two_denials() -> None:
 
 def test_positive_control_scale_preserves_counterfactual_pairs(pair_integrity_matrix: Path) -> None:
     attack = run_api_attack_pilot._load_arm(
-        pair_integrity_matrix / "checkpoint4a-test-model-attack"
+        pair_integrity_matrix / "checkpoint4a-openai-test-model-attack"
     )
     cell = [
         (raw, derived)
@@ -997,8 +1041,8 @@ def test_terminal_variability_reports_distinct_statuses_and_modal_share() -> Non
 def test_summary_includes_benign_cells_in_the_non_determinism_report(small_matrix) -> None:
     output_root, _ = small_matrix
     table = summarize(
-        output_root / "checkpoint4a-test-model-attack",
-        output_root / "checkpoint4a-test-model-benign",
+        output_root / "checkpoint4a-openai-test-model-attack",
+        output_root / "checkpoint4a-openai-test-model-benign",
     )
 
     report = table.split("non-determinism by cell", maxsplit=1)[1]
@@ -1009,8 +1053,8 @@ def test_summary_includes_benign_cells_in_the_non_determinism_report(small_matri
 def test_summary_reports_probe_send_denial_and_conditional_leakage_per_cell(small_matrix) -> None:
     output_root, _ = small_matrix
     table = summarize(
-        output_root / "checkpoint4a-test-model-attack",
-        output_root / "checkpoint4a-test-model-benign",
+        output_root / "checkpoint4a-openai-test-model-attack",
+        output_root / "checkpoint4a-openai-test-model-benign",
     )
     rows = _rows(table)
     assert len(rows) == 20
@@ -1084,8 +1128,8 @@ def test_summary_reports_probe_send_denial_and_conditional_leakage_per_cell(smal
 def test_summary_utility_un_cells_sum_to_the_attack_aggregate(small_matrix) -> None:
     output_root, outcome = small_matrix
     table = summarize(
-        output_root / "checkpoint4a-test-model-attack",
-        output_root / "checkpoint4a-test-model-benign",
+        output_root / "checkpoint4a-openai-test-model-attack",
+        output_root / "checkpoint4a-openai-test-model-benign",
     )
     rows = _rows(table)
     header = next(line for line in table.splitlines() if "probe_rate" in line)

@@ -281,6 +281,10 @@ class ReadinessCondition(BaseModel):
     defense_mode: DefenseMode = DefenseMode.NONE
     repetition: int
     run_id_prefix: str = Field(default="ollama", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    paired_run_group_prefix: str = Field(
+        default="workspace-file-readiness",
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$",
+    )
 
     @model_validator(mode="after")
     def validate_frozen_scope(self) -> ReadinessCondition:
@@ -305,7 +309,7 @@ class ReadinessCondition(BaseModel):
 
     @property
     def paired_run_group_id(self) -> str:
-        return f"workspace-file-readiness-benign-d{self.delay}-r{self.repetition}"
+        return f"{self.paired_run_group_prefix}-benign-d{self.delay}-r{self.repetition}"
 
 
 def pilot_conditions() -> list[PilotCondition]:
@@ -326,7 +330,11 @@ def pilot_conditions() -> list[PilotCondition]:
     ]
 
 
-def readiness_conditions(*, run_id_prefix: str = "ollama") -> list[ReadinessCondition]:
+def readiness_conditions(
+    *,
+    run_id_prefix: str = "ollama",
+    paired_run_group_prefix: str = "workspace-file-readiness",
+) -> list[ReadinessCondition]:
     """Return exactly 2 states x 2 delays x 2 matched-benign repetitions."""
 
     return [
@@ -335,6 +343,7 @@ def readiness_conditions(*, run_id_prefix: str = "ollama") -> list[ReadinessCond
             delay=delay,
             repetition=repetition,
             run_id_prefix=run_id_prefix,
+            paired_run_group_prefix=paired_run_group_prefix,
         )
         for delay in (0, 2)
         for state in HiddenState
