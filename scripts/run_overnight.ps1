@@ -99,12 +99,16 @@ try {
         $preflightFailures += "Checkpoint 9 preregistration file is missing"
     }
     else {
-        $checkpoint = Get-Content -LiteralPath $CheckpointPath -Raw
-        $isFinal = $checkpoint -match "(?im)^## .*Checkpoint 9.*\bfinal\b" -and $checkpoint -notmatch "(?im)^## .*Checkpoint 9.*\bdraft\b"
+        $document = Get-Content -LiteralPath $CheckpointPath -Raw
+        # Only the Checkpoint 9 section is inspected: earlier checkpoints legitimately
+        # mention identifiers such as scenario_id, and -match is case-insensitive.
+        $section = [regex]::Match($document, "(?ms)^## [^\r\n]*Checkpoint 9\b.*?(?=^## |\z)")
+        $heading = if ($section.Success) { ($section.Value -split "\r?\n", 2)[0] } else { "" }
+        $isFinal = $heading -match "\bfinal\b" -and $heading -notmatch "\bdraft\b|\bnot final\b"
         if (-not $isFinal) {
             $preflightFailures += "Checkpoint 9 is not marked final"
         }
-        if ($checkpoint -match "(?i)\bplaceholder(s)?\b|\b[A-Z][A-Z0-9]*_ID\b") {
+        if ($section.Success -and ($section.Value -match "\bplaceholders?\b" -or $section.Value -cmatch "\b[A-Z][A-Z0-9_]*_ID\b")) {
             $preflightFailures += "Checkpoint 9 contains placeholders"
         }
     }

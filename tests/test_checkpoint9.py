@@ -215,3 +215,56 @@ def test_overnight_dry_run_refuses_failed_preflight_without_network(
     assert result.returncode != 0
     assert expected in result.stdout
     assert "fixture-provider-check-key" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("checkpoint_text", "flags_placeholders", "flags_not_final"),
+    [
+        # Earlier checkpoints legitimately mention scenario_id and placeholders.
+        (
+            "## Checkpoint 4\nEach `scenario_id` is validated; no placeholder remains.\n"
+            "## 2026-10-02 (Checkpoint 9): extension — final\nModels: `gemini-3.8-flash`.\n"
+            "## Not frozen by this document\n- the Causal Residue gate.\n",
+            False,
+            False,
+        ),
+        ("## 2026-10-02 (Checkpoint 9): extension — final\nGoogle: `GEMINI_PRO_ID`\n", True, False),
+        ("## 2026-10-02 (Checkpoint 9 draft): extension — not final\nModels.\n", False, True),
+        ("## 2026-10-02 (Checkpoint 9): extension — not final\nModels.\n", False, True),
+    ],
+)
+def test_overnight_checkpoint_gate_inspects_only_the_checkpoint_9_section(
+    tmp_path: Path,
+    checkpoint_text: str,
+    flags_placeholders: bool,
+    flags_not_final: bool,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _initialise_clean_repository(repository)
+    # A dirty tree guarantees the dry run still refuses, whatever the checkpoint says.
+    (repository / "marker.txt").write_text("dirty\n", encoding="utf-8")
+    checkpoint_path = tmp_path / "preregistration.md"
+    checkpoint_path.write_text(checkpoint_text, encoding="utf-8")
+    env_path = tmp_path / "temporary.env"
+    env_path.write_text("ANTHROPIC_API_KEY=x\nGEMINI_API_KEY=x\n", encoding="utf-8")
+    queue_path = tmp_path / "queue.json"
+    _queue(queue_path)
+
+    result = _run_powershell(
+        str(SCRIPTS / "run_overnight.ps1"),
+        "-DryRun",
+        "-RepositoryRoot",
+        str(repository),
+        "-CheckpointPath",
+        str(checkpoint_path),
+        "-EnvPath",
+        str(env_path),
+        "-QueuePath",
+        str(queue_path),
+    )
+
+    assert result.returncode != 0
+    assert "git tree is dirty" in result.stdout
+    assert ("Checkpoint 9 contains placeholders" in result.stdout) is flags_placeholders
+    assert ("Checkpoint 9 is not marked final" in result.stdout) is flags_not_final
