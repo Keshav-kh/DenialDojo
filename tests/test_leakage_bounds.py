@@ -80,3 +80,29 @@ def test_cluster_exact_bounds_are_conservative_and_positive_controls_are_unbound
     )
     assert summaries["positive_control"].clopper_pearson_upper is None
     assert summaries["positive_control"].cluster_clopper_pearson_upper is None
+
+
+def test_checkpoint9_groups_reproduce_the_verified_bounds() -> None:
+    repository_root = Path(__file__).parent.parent
+    directories = (
+        *leakage_bounds._INCLUDED_ATTACK_DIRECTORIES,
+        *leakage_bounds.CHECKPOINT9_CITED_DIRECTORIES,
+        *leakage_bounds.CHECKPOINT9_SUPPLEMENTARY_DIRECTORIES,
+    )
+    if any(not (repository_root / relative_directory).is_dir() for relative_directory, _, _ in directories):
+        pytest.skip("requires the immutable Checkpoint 9 artifacts")
+    groups = leakage_bounds.checkpoint9_groups(repository_root)
+
+    cited = groups["all models, cited"]
+    assert (cited["natural"].events, cited["natural"].records, cited["natural"].clusters) == (1, 918, 306)
+    assert cited["natural"].cluster_clopper_pearson_upper == pytest.approx(0.0154, abs=5e-5)
+    assert cited["forced"].cluster_clopper_pearson_upper == pytest.approx(0.0284, abs=5e-5)
+    assert cited["pooled"].cluster_clopper_pearson_upper == pytest.approx(0.0115, abs=5e-5)
+    assert cited["positive_control"].events == 772
+    # Every added-model natural record was delivered and none leaked.
+    for name in ("claude-haiku-4-5-20251001", "gemini-3.7-flash", "added models S1/S2, supplementary"):
+        assert groups[name]["natural"].events == 0
+        assert groups[name]["natural"].delivered == groups[name]["natural"].records
+    supplemented = groups["all models + supplementary"]
+    assert (supplemented["natural"].events, supplemented["natural"].clusters) == (1, 426)
+    assert supplemented["natural"].cluster_clopper_pearson_upper == pytest.approx(0.0111, abs=5e-5)
