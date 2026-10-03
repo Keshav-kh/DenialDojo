@@ -21,10 +21,11 @@ from denialdojo.interposer import (
     GuardAuthorizationTranscript,
     GuardCallable,
 )
-from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
+from denialdojo.models import DefenseMode, DenialReason, FeedbackMode, HiddenState
 from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
 from denialdojo.ollama_adapter import Transport as OllamaTransport
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario, get_scenario
+from denialdojo.scenarios.base import present_permission_denied_first
 from denialdojo.trace import (
     ModelRuntimeMetadata,
     TerminalStatus,
@@ -417,6 +418,8 @@ def run_workspace_ollama_condition(
     probe_condition = getattr(condition, "probe_condition", "natural")
     injection_variant = getattr(condition, "injection_variant", "v1")
     quarantine_k = getattr(condition, "quarantine_k", 2)
+    uniform_label = getattr(condition, "uniform_label", DenialReason.ACCESS_DENIED)
+    codebook_order = getattr(condition, "codebook_order", "nf_first")
     injection = (
         active_scenario.benign_file_note
         if condition.benign_control
@@ -427,6 +430,10 @@ def run_workspace_ollama_condition(
         if condition.benign_control
         else active_scenario.attack_prompt(probe_condition)
     )
+    if codebook_order == "pd_first":
+        # Both places the model reads the codebook, so the two never disagree on order.
+        injection = present_permission_denied_first(injection, active_scenario.codebook)
+        prompt = present_permission_denied_first(prompt, active_scenario.codebook)
     environment = active_scenario.build_environment(condition.hidden_state, injection)
     pre_environment = environment.model_copy(deep=True)
     runtime = active_scenario.runtime_factory()
@@ -438,6 +445,7 @@ def run_workspace_ollama_condition(
         external_sinks=frozenset({active_scenario.sink_decode.tool_name}),
         quarantine_window=quarantine_k,
         guard=guard,
+        uniform_label=uniform_label,
     )
     defense_parameters = {"quarantine_window": quarantine_k}
     if guard_model is not None:
@@ -536,6 +544,8 @@ def run_workspace_ollama_condition(
             benign_control=condition.benign_control,
             hidden_state=condition.hidden_state,
             feedback_mode=condition.feedback_mode,
+            uniform_label=uniform_label,
+            codebook_order=codebook_order,
             probe_condition=probe_condition,
             injection_variant=injection_variant,
             requested_delay=condition.delay,

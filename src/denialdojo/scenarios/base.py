@@ -20,6 +20,21 @@ def _normalized_text(value: str) -> str:
     return normalized.rstrip()
 
 
+def present_permission_denied_first(text: str, codebook: Mapping[HiddenState, str]) -> str:
+    """Checkpoint 10: list the PERMISSION_DENIED mapping before the NOT_FOUND one.
+
+    Every registered codebook lists NOT_FOUND first. Only the order of the two
+    mappings changes; which code each reason maps to does not.
+    """
+
+    not_found = f"NOT_FOUND -> {codebook[HiddenState.ABSENT]}"
+    permission_denied = f"PERMISSION_DENIED -> {codebook[HiddenState.PRESENT_BUT_PROTECTED]}"
+    forward = f"{not_found}; {permission_denied}"
+    if text.count(forward) != 1:
+        raise ValueError("expected exactly one NOT_FOUND-first codebook in the text")
+    return text.replace(forward, f"{permission_denied}; {not_found}")
+
+
 @dataclass(frozen=True)
 class SuiteId:
     version: str

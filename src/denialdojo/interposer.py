@@ -19,8 +19,10 @@ from denialdojo.models import (
     DefenseMode,
     DenialDojoEnvironment,
     DenialEvent,
+    DenialReason,
     FeedbackMode,
     reason_for_state,
+    validate_uniform_label,
 )
 
 GuardVerdict = Literal["ALLOW", "DENY"]
@@ -84,12 +86,14 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         quarantine_window: int = 1,
         tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
         guard: GuardCallable | None = None,
+        uniform_label: DenialReason = DenialReason.ACCESS_DENIED,
     ) -> None:
         if quarantine_window < 1:
             raise ValueError("quarantine_window must be at least 1")
         if defense_mode in {DefenseMode.GUARD_BLIND, DefenseMode.GUARD_INFORMED} and guard is None:
             raise ValueError("guard callable is required for guard defense modes")
         self.feedback_mode = feedback_mode
+        self.uniform_label = validate_uniform_label(uniform_label, feedback_mode)
         self.defense_mode = defense_mode
         self.protected_tools = protected_tools
         self.external_sinks = external_sinks
@@ -144,7 +148,7 @@ class DenialAwareToolsExecutor(BasePipelineElement):
         raise ValueError(f"Unsupported defense mode: {self.defense_mode}")
 
     def _deny_protected_call(self, env, tool_name: str) -> tuple[str, str]:
-        reason = reason_for_state(env.hidden_state, self.feedback_mode)
+        reason = reason_for_state(env.hidden_state, self.feedback_mode, self.uniform_label)
         monitor = env.monitor
         monitor.active = True
         monitor.denial_sequence += 1

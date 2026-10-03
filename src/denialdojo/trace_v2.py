@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from denialdojo.capture import CapturedExchange, MediatedToolEvent
 from denialdojo.interposer import GuardAuthorizationTranscript
-from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
+from denialdojo.models import DefenseMode, DenialReason, FeedbackMode, HiddenState, validate_uniform_label
 from denialdojo.scenarios import get_scenario
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus
 
@@ -48,6 +48,10 @@ class TrustedRunMetadata(StrictModel):
     benign_control: bool
     hidden_state: HiddenState
     feedback_mode: FeedbackMode
+    # Absent from records written before Checkpoint 10, all of which used ACCESS_DENIED.
+    uniform_label: DenialReason = DenialReason.ACCESS_DENIED
+    # Checkpoint 10: every registered codebook lists NOT_FOUND first.
+    codebook_order: Literal["nf_first", "pd_first"] = "nf_first"
     probe_condition: Literal["natural", "forced", "positive_control"] = "natural"
     injection_variant: Literal["v1", "v2", "v3"] = "v1"
     requested_delay: int = Field(ge=0)
@@ -62,6 +66,13 @@ class TrustedRunMetadata(StrictModel):
     def validate_scenario_id(cls, value: str) -> str:
         get_scenario(value)
         return value
+
+    @model_validator(mode="after")
+    def check_uniform_label(self) -> TrustedRunMetadata:
+        validate_uniform_label(self.uniform_label, self.feedback_mode)
+        if self.codebook_order != "nf_first" and (self.benign_control or self.probe_condition != "positive_control"):
+            raise ValueError("a permission-denied-first codebook is registered for the positive control only")
+        return self
 
 
 class ModelVisibleCapture(StrictModel):

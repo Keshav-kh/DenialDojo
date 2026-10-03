@@ -34,6 +34,31 @@ class DenialReason(str, Enum):
     NOT_FOUND = "NOT_FOUND"
     PERMISSION_DENIED = "PERMISSION_DENIED"
     ACCESS_DENIED = "ACCESS_DENIED"
+    # Checkpoint 10 uniform-label wording arms; see docs/preregistration.md.
+    NOT_PERMITTED = "NOT_PERMITTED"
+    RESOURCE_UNAVAILABLE = "RESOURCE_UNAVAILABLE"
+    REQUEST_FAILED = "REQUEST_FAILED"
+
+
+# Labels a uniform denial may carry. ACCESS_DENIED is the label of every run before
+# Checkpoint 10 and stays the default; the reason-bearing codes are never uniform labels.
+UNIFORM_LABELS: tuple[DenialReason, ...] = (
+    DenialReason.ACCESS_DENIED,
+    DenialReason.NOT_PERMITTED,
+    DenialReason.RESOURCE_UNAVAILABLE,
+    DenialReason.REQUEST_FAILED,
+)
+
+
+def validate_uniform_label(uniform_label: DenialReason, feedback_mode: FeedbackMode) -> DenialReason:
+    """Reject a uniform label that could carry state or that would never be shown."""
+
+    label = DenialReason(uniform_label)
+    if label not in UNIFORM_LABELS:
+        raise ValueError(f"{label.value} is not a registered uniform denial label")
+    if feedback_mode == FeedbackMode.REASON_BEARING and label != DenialReason.ACCESS_DENIED:
+        raise ValueError("a uniform denial label other than ACCESS_DENIED requires uniform feedback")
+    return label
 
 
 class Document(BaseModel):
@@ -95,11 +120,16 @@ class ScenarioConfig(BaseModel):
     quarantine_window: int = Field(default=1, ge=1)
 
 
-def reason_for_state(hidden_state: HiddenState, feedback_mode: FeedbackMode) -> DenialReason:
+def reason_for_state(
+    hidden_state: HiddenState,
+    feedback_mode: FeedbackMode,
+    uniform_label: DenialReason = DenialReason.ACCESS_DENIED,
+) -> DenialReason:
     """Return the observable denial reason for a hidden state and feedback policy."""
 
+    label = validate_uniform_label(uniform_label, feedback_mode)
     if feedback_mode == FeedbackMode.UNIFORM:
-        return DenialReason.ACCESS_DENIED
+        return label
     if hidden_state == HiddenState.ABSENT:
         return DenialReason.NOT_FOUND
     return DenialReason.PERMISSION_DENIED

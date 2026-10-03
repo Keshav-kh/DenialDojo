@@ -43,10 +43,11 @@ from denialdojo.local_artifacts import (
     protocol_counts,
     terminal_counts,
 )
-from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
+from denialdojo.models import DefenseMode, DenialReason, FeedbackMode, HiddenState, validate_uniform_label
 from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
 from denialdojo.run_api_pilot import READINESS_SUMMARY_SCHEMA_VERSION, _model_slug, _runtime_metadata
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario, get_scenario, scenario_ids
+from denialdojo.scenarios.base import present_permission_denied_first
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus
 from denialdojo.trace_v2 import (
     DerivedRunRecord,
@@ -85,6 +86,9 @@ class AttackPilotCondition(BaseModel):
     probe_condition: Literal["natural", "forced", "positive_control"]
     injection_variant: Literal["v1", "v2", "v3"] = "v1"
     feedback_mode: FeedbackMode
+    # Checkpoint 10 only; every earlier run used ACCESS_DENIED.
+    uniform_label: DenialReason = DenialReason.ACCESS_DENIED
+    codebook_order: Literal["nf_first", "pd_first"] = "nf_first"
     delay: int = Field(ge=0)
     benign_control: bool
     defense_mode: DefenseMode = DefenseMode.NONE
@@ -111,6 +115,9 @@ class AttackPilotCondition(BaseModel):
             raise ValueError("quarantine_k is only valid with defense mode fixed_quarantine")
         if self.benign_control and self.probe_condition != "forced":
             raise ValueError("matched benign controls are always the forced probe condition")
+        validate_uniform_label(self.uniform_label, self.feedback_mode)
+        if self.codebook_order != "nf_first" and (self.benign_control or self.probe_condition != "positive_control"):
+            raise ValueError("a permission-denied-first codebook is registered for the positive control only")
         return self
 
     @property
@@ -137,9 +144,15 @@ class AttackPilotCondition(BaseModel):
     def paired_run_group_id(self) -> str:
         arm = "benign" if self.benign_control else "attack"
         provider = f"-{self.provider}" if self.provider is not None else ""
+        # Defaults are left out so that every pre-Checkpoint 10 group ID is unchanged.
+        label = (
+            "" if self.uniform_label == DenialReason.ACCESS_DENIED else f"-{self.uniform_label.value.lower()}"
+        )
+        if self.codebook_order != "nf_first":
+            label += f"-{self.codebook_order}"
         return (
             f"{CHECKPOINT}{provider}-{arm}-{self.probe_condition}-{self.injection_variant}-{self.feedback_mode.value}"
-            f"-{self.defense_mode.value}-d{self.delay}-r{self.repetition}"
+            f"{label}-{self.defense_mode.value}-d{self.delay}-r{self.repetition}"
         )
 
 
@@ -476,12 +489,15 @@ def _record_injection_text(raw: RawRunRecord) -> str:
     if injection_variant is None:
         return scenario.default_attack_injection
     try:
-        return scenario.injection_variants[injection_variant]
+        text = scenario.injection_variants[injection_variant]
     except KeyError as error:
         raise ValueError(
             f"raw record names unknown injection variant {injection_variant!r} "
             f"for scenario {scenario.id!r}"
         ) from error
+    if getattr(metadata, "codebook_order", "nf_first") == "pd_first":
+        return present_permission_denied_first(text, scenario.codebook)
+    return text
 
 
 def _contains_expected_text(value: object, expected: str) -> bool:
