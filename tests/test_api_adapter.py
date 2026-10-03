@@ -363,3 +363,54 @@ def test_api_adapter_completes_frozen_sequential_preflight_with_mocked_http(monk
         "tool_call_id": "call_lookup",
         "content": "VALUE-7",
     }
+
+
+def _tool_call_response(extra_content: dict | None) -> dict:
+    call = {
+        "id": "call_425877",
+        "type": "function",
+        "function": {"name": "echo_value", "arguments": '{"value": "blue"}'},
+    }
+    if extra_content is not None:
+        call["extra_content"] = extra_content
+    message = {"role": "assistant", "tool_calls": [call]}
+    return {"model": "m", "choices": [{"finish_reason": "tool_calls", "message": message}]}
+
+
+def _two_turns(provider: str, model: str, extra_content: dict | None, monkeypatch) -> list[dict]:
+    from agentdojo.types import ChatToolResultMessage
+
+    monkeypatch.setenv("DENIALDOJO_API_KEY", "fixture-key")
+    final = {"model": "m", "choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "done"}}]}
+    transport = FakeApiTransport([_tool_call_response(extra_content), final])
+    adapter = ApiAdapter(_config(provider=provider, model=model, base_url=None), transport=transport)
+    runtime = FunctionsRuntime([make_function(echo_value)])
+    _, _, _, messages, _ = adapter.query("", runtime, messages=_messages())
+    call = messages[-1]["tool_calls"][0]
+    tool_result = ChatToolResultMessage(
+        role="tool",
+        content=[text_content_block_from_string("blue")],
+        tool_call_id=call.id,
+        tool_call=call,
+        error=None,
+    )
+    adapter.query("", runtime, messages=[*messages, tool_result])
+    return [payload for _, _, payload, _ in transport.calls]
+
+
+def test_gemini_thought_signature_is_returned_on_the_same_tool_call(monkeypatch) -> None:
+    signature = {"google": {"thought_signature": "EmkKZwFpFH0T"}}
+    payloads = _two_turns("google", "gemini-3.8-flash", signature, monkeypatch)
+
+    assistant = next(m for m in payloads[1]["messages"] if m["role"] == "assistant")
+    assert assistant["tool_calls"][0]["id"] == "call_425877"
+    assert assistant["tool_calls"][0]["extra_content"] == signature
+
+
+def test_providers_without_extra_content_send_unchanged_tool_calls(monkeypatch) -> None:
+    payloads = _two_turns("openai", "gpt-5.6-luna", None, monkeypatch)
+
+    assistant = next(m for m in payloads[1]["messages"] if m["role"] == "assistant")
+    assert assistant["tool_calls"] == [
+        {"id": "call_425877", "type": "function", "function": {"name": "echo_value", "arguments": '{"value": "blue"}'}}
+    ]

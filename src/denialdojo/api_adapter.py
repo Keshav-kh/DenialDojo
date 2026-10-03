@@ -167,7 +167,19 @@ def _message_text(message: ChatMessage) -> str:
     return get_text_content_as_str(content) if content else ""
 
 
-def _to_openai_messages(messages: Sequence[ChatMessage]) -> list[dict[str, Any]]:
+def _to_openai_messages(
+    messages: Sequence[ChatMessage],
+    tool_call_extra_content: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert AgentDojo messages; echo provider-opaque per-call data back unchanged.
+
+    Gemini 3 attaches ``extra_content.google.thought_signature`` to tool calls and
+    rejects the next request (HTTP 400) unless it is returned on the same call.
+    AgentDojo's ``FunctionCall`` has no field for it, so it is kept by call id.
+    Providers that never send ``extra_content`` produce byte-identical payloads.
+    """
+
+    extras = tool_call_extra_content or {}
     converted: list[dict[str, Any]] = []
     for message in messages:
         role = message["role"]
@@ -182,6 +194,7 @@ def _to_openai_messages(messages: Sequence[ChatMessage]) -> list[dict[str, Any]]
                         "id": call.id,
                         "type": "function",
                         "function": {"name": call.function, "arguments": json.dumps(dict(call.args))},
+                        **({"extra_content": copy.deepcopy(extras[call.id])} if call.id in extras else {}),
                     }
                     for call in calls
                 ]
@@ -242,6 +255,8 @@ class ApiAdapter(BasePipelineElement):
         self.last_messages: list[ChatMessage] = []
         self.reported_model: str | None = None
         self.token_usage: dict[str, Any] | None = None
+        # Provider-opaque per-tool-call data (Gemini thought signatures), keyed by call id.
+        self.tool_call_extra_content: dict[str, Any] = {}
 
     @property
     def payload_profile(self) -> dict[str, Any]:
@@ -362,7 +377,7 @@ class ApiAdapter(BasePipelineElement):
 
         payload = {
             "model": self.config.model,
-            "messages": _to_openai_messages(messages),
+            "messages": _to_openai_messages(messages, self.tool_call_extra_content),
             "tools": _tool_schemas(runtime),
             "tool_choice": "auto",
         }
@@ -452,6 +467,8 @@ class ApiAdapter(BasePipelineElement):
                     f"invalid arguments for {name}: {error}",
                 )
                 return query, runtime, env, self._remember(messages, failure), extra_args
+            if "extra_content" in raw_call:
+                self.tool_call_extra_content[call_id] = copy.deepcopy(raw_call["extra_content"])
             function_calls.append(FunctionCall(function=name, args=validated, id=call_id))
 
         if function_calls:
