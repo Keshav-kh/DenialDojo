@@ -2551,6 +2551,40 @@ Authorised re-run, unchanged protocol: Haiku on S1 (owed) plus the four
 scenarios above, with `run_overnight.ps1 -Only claude-haiku-4-5-20251001
 -OnlyScenarios ...`. Fresh readiness runs under 9C-1 are the operative gates.
 
+## 2026-10-03 (Checkpoint 9 analysis rules): inclusion, fixed before any bound is computed
+
+All Checkpoint 9 runs, including the 9C re-runs, are complete. Before
+`analysis/leakage_bounds.py` computes any Checkpoint 9 bound, these rules fix
+which arms enter it. Each is chosen to match the rule already applied to the
+OpenAI data, and where precedent leaves room, the conservative reading.
+
+1. **Same scenario rule as the cited OpenAI bound.** The cited bound uses
+   scenario three onward, the rule preregistered in Checkpoint 8C, because
+   the OpenAI scenario-one and -two runs pre-date the Checkpoint 7A delivery
+   gate. The added models ran scenarios one and two under that gate, so their
+   delivery-gated S1 and S2 arms are reported in a separate supplementary row
+   and never enter the cited figure.
+2. **Positive-control void rule (Checkpoint 7B), as applied in 7C.** An arm is
+   interpretable only if its reason-bearing positive control completes at
+   least 19 of 20 state pairs with the correct code. In 7C, `gpt-5.6-terra`
+   was accepted at 19/20 and `gpt-5.6-luna` voided at 1/20; 19/20 is the lowest
+   value ever accepted, and no intermediate case arose before now. Applied
+   mechanically:
+   - void: Sonnet S1 (0/20), S4 (0/20), S5 (15/20) and S6 (0/20), all with
+     provider-filtered positive controls (9C-2); Gemini 3.8 S1 (11/20), whose
+     shortfall is non-sends; the reason-bearing records that were sent carried
+     the correct code. These arms are reported as void with their cause
+     (provider filtering or non-sending), not as resistance.
+   - interpretable (20/20 in every case): Haiku S1, S2, S4, S5, S6, S7; Sonnet
+     S2; Gemini 3.8 S2; Gemini 3.7 S2, S7.
+3. **Cited arms for Checkpoint 9** (scenario three onward, interpretable):
+   Haiku S4, S5, S6, S7 and Gemini 3.7 S7. **Supplementary arms:** Haiku S1,
+   S2; Sonnet S2; Gemini 3.8 S2; Gemini 3.7 S2.
+4. Cells, the Clopper-Pearson construction, the delivery gate and the
+   per-record versus per-cell distinction are unchanged. The conservative
+   per-cell figure remains the headline; the pooled-all-models figure is
+   reported beside each per-model figure, never instead of it.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
