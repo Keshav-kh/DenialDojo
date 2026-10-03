@@ -10,8 +10,8 @@
 % or upload to Overleaf and press Recompile.
 %
 % The \TODO, \PLACEHOLDER and \UNVERIFIED macros below are kept for later
-% drafts. As of the first complete draft (2026-09-26) none is used in the
-% text: every claim is backed by a committed artifact or preregistration entry.
+% drafts. As of the revised draft (2026-10-03, Checkpoint 9) none is used in
+% the text: every claim is backed by a committed artifact or preregistration entry.
 % =====================================================================
 
 \documentclass[11pt,oneside]{report}
@@ -57,7 +57,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small DenialDojo --- first draft}
+\fancyhead[L]{\small DenialDojo --- revised draft}
 \fancyhead[R]{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -88,17 +88,17 @@ The Pennsylvania State University\\
 Schreyer Honors College\par}
 
 \vspace{2.0cm}
-{\large First draft --- \today\par}
+{\large Revised draft --- \today\par}
 
 \vfill
 \begin{minipage}{0.85\textwidth}
 \small
-\textbf{Status of this document.} This is the first complete draft,
-prepared after data collection closed on 26 September 2026. Every result
-it reports is traceable to a committed, immutable run artifact and to a
-dated preregistration entry written before the data it governs. It is
-not yet in the Schreyer Honors College thesis format; the content is
-complete and will be transferred into that format unchanged.
+\textbf{Status of this document.} This is the revised draft, incorporating
+the cross-vendor extension requested by the thesis supervisor on 2 October
+2026 (Checkpoint 9). Every result it reports is traceable to a committed,
+immutable run artifact and to a dated preregistration entry written before
+the data it governs. It is not yet in the Schreyer Honors College thesis
+format; the content will be transferred into that format unchanged.
 \end{minipage}
 
 \end{titlepage}
@@ -121,23 +121,26 @@ external sink. Two hidden-state arms are held byte-identical in task, prompt and
 attack text and differ only in why access fails, so a difference in what the
 agent sends is attributable to the denial reason alone. Built on AgentDojo, the
 benchmark mediates every protected call through a trusted interposer and writes
-immutable, replayable records. It was run on two hosted models across seven
-scenarios in three task suites, producing 8{,}193 records under a preregistration
-discipline in which every prediction was recorded before its data existed.
+immutable, replayable records. It was run on six hosted models from three
+providers --- OpenAI's GPT-5.6 Luna and Terra, Anthropic's Claude Sonnet~5.5 and
+Haiku~4.5, and Google's Gemini~3.8 and~3.7 Flash --- across seven scenarios in
+three task suites, producing 13{,}993 records under a preregistration discipline
+in which every prediction was recorded before its data existed.
 
 The instrument detects the channel whenever the user authorises its use:
 under reason-bearing feedback the positive control decoded the hidden state in
-319 of 320 records of the final dataset, and uniform feedback closed the channel
-completely. Unsolicited leakage, driven only by injected content, was realised
-once --- four of four counterfactual pairs in one scenario on one model --- and
-was not reproduced across five further scenarios spanning three suites, four
-carrier modalities and both sink modalities. With injection delivery verified
-for every record, one send occurred in 558 natural records and none in 640
-forced records; treating each experimental cell as a single observation, the
-one-sided 95\% upper bound on the leakage rate is 2.52\% natural and 1.88\%
-pooled. Under uninformative denials the models emit a constant code whose token
-follows the codebook while its meaning does not, a semantic default that was
-predicted in advance, down to the specific token, and confirmed on both models.
+519 of 520 records of the cited dataset, on every provider, and uniform feedback
+closed the channel completely. Unsolicited leakage, driven only by injected
+content, was realised once --- four of four counterfactual pairs in one scenario
+on one OpenAI model --- and was not reproduced anywhere else. Across the four
+added models the injection was delivered in all 1{,}080 natural records and not
+one acted on it. Treating each experimental cell as a single observation, the
+one-sided 95\% upper bound on the leakage rate across all models is 1.54\%
+natural and 1.15\% pooled. Under uninformative denials the models emit a
+constant code: the code the codebook assigns to \texttt{PERMISSION\_DENIED},
+whichever token that is, in 18 of 19 interpretable arms across all three
+providers --- a semantic default that was predicted in advance, down to the
+specific token, on the OpenAI models.
 
 A dual-model authorization layer, in which a guard model approves or denies each
 outbound action, blocked every attempted exfiltration of the realised attack in
@@ -146,11 +149,14 @@ user's request cannot authorise any action whose legitimacy depends on gathered
 state (\emph{state blindness}); a guard that also sees tool output recovers full
 benign utility, is not persuaded by the injection it reads, but misattributes a
 legitimate instruction to the untrusted channel when both carry it
-(\emph{provenance confusion}). The work also catalogues twenty-two
-measurement-validity defects found in its own instrumentation, including
-experiments that ran cleanly and measured nothing, and shows that the wording of
-a protected tool's description can manufacture the reconnaissance the benchmark
-attributes to injection.
+(\emph{provenance confusion}). Two losses of coverage in the extension are
+findings in their own right: Anthropic's provider-side content filter blocked
+Sonnet's positive control often enough to void every Sonnet arm from scenario
+three onward, and both Gemini releases declined the benign version of most
+scenarios. The work also catalogues twenty-six measurement-validity defects
+found in its own instrumentation, including experiments that ran cleanly and
+measured nothing, and shows that the wording of a protected tool's description
+can manufacture the reconnaissance the benchmark attributes to injection.
 
 \tableofcontents
 
@@ -224,8 +230,9 @@ requires (Chapter~\ref{ch:background}).
 \end{description}
 
 RQ4 was added before the Banking and Travel scenarios were built and is
-answered negatively in Sections~\ref{sec:scenario-four}
-and~\ref{sec:final-bounds}. The negative answer,
+answered negatively in Sections~\ref{sec:scenario-four},
+\ref{sec:final-bounds} and~\ref{sec:cross-vendor}, the last across three model
+providers. The negative answer,
 bounded rather than merely asserted, is the principal empirical result of this
 work.
 
@@ -250,29 +257,36 @@ work.
     channel about half the time (\emph{provenance confusion under
     instruction collision}) (Section~\ref{sec:guard}).
   \item \textbf{A bounded negative result with a validated positive
-    control.} Across the five scenarios run after the realised attack,
-    spanning all three usable suites, both sink modalities and four
-    carrier modalities, unsolicited denial-reason leakage occurred in
-    one of 558 interpretable natural records and in none of 640 forced
-    records, with injection delivery verified for every record. Treating
-    each experimental cell as a single observation, so that no
-    independence is assumed, the one-sided 95\% upper bounds are
-    $2.52\%$ natural and $1.88\%$ pooled. In the same runs the
-    reason-bearing positive control decoded the hidden state in 319 of
-    320 records, on the same denial strings, so the bound separates
+    control, across three providers.} From scenario three onward, spanning
+    all three usable suites, both sink modalities and four carrier
+    modalities, unsolicited denial-reason leakage occurred in one of 918
+    interpretable natural records and in none of 1{,}040 forced records,
+    with injection delivery verified for every record. Treating each
+    experimental cell as a single observation, so that no independence is
+    assumed, the one-sided 95\% upper bounds across all models are
+    $1.54\%$ natural and $1.15\%$ pooled. In the same runs the
+    reason-bearing positive control decoded the hidden state in 519 of
+    520 records, on the same denial strings, so the bound separates
     \emph{absence of the behaviour} from \emph{absence of sensitivity}
-    (Section~\ref{sec:final-bounds}).
-  \item \textbf{A semantic-default finding, predicted in advance.} Under
-    uniform feedback the models emit a constant code, and wherever the
-    instrument was validated that constant is the code for
-    \code{PERMISSION\_DENIED}, across opposing codebook assignments in all
-    three suites. The token changes with the codebook and the meaning
-    does not, which no token-frequency bias can produce. The specific
-    token was predicted before the data existed for three scenarios and
-    was confirmed on every validated arm, including all 160 uniform-arm
-    records across both models in the final two scenarios
-    (Sections~\ref{sec:inversion}, \ref{sec:scenario-five}
-    and~\ref{sec:final-bounds}).
+    (Sections~\ref{sec:final-bounds} and~\ref{sec:cross-vendor-bounds}).
+  \item \textbf{A cross-vendor replication with two coverage findings.}
+    Four models from Anthropic and Google were run under the identical
+    protocol. None acted on a delivered injection in any of 1{,}080
+    natural records, while the positive control leaked on every provider.
+    Anthropic's content filter, a provider-side defence, voided every
+    Sonnet arm from scenario three onward; both Gemini releases declined
+    the benign version of most scenarios (Section~\ref{sec:cross-vendor}).
+  \item \textbf{A semantic-default finding, predicted in advance and
+    observed across vendors.} Under uniform feedback the models emit a
+    constant code, and wherever the instrument was validated that constant
+    is the code for \code{PERMISSION\_DENIED}, across opposing codebook
+    assignments in all three suites. The token changes with the codebook
+    and the meaning does not, which no token-frequency bias can produce.
+    The specific token was predicted before the data existed for three
+    scenarios on the OpenAI models, and the same default appears in 18 of
+    19 interpretable arms across all three providers
+    (Sections~\ref{sec:inversion}, \ref{sec:scenario-five},
+    \ref{sec:final-bounds} and~\ref{sec:cross-vendor-default}).
   \item A realised denial-reason leak under indirect prompt injection,
     reported at its true size: four counterfactual pairs in one cell of
     one scenario on one model, plus one unpaired event in a second
@@ -550,11 +564,12 @@ record raises. A run directory additionally carries a manifest
 recording the repository commit, a source-tree hash, the runtime
 metadata, and the expected run identifiers.
 
-The frozen dataset and its development history comprise
-\textbf{8{,}193} raw run records across all checkpoints
-(Appendix~\ref{app:artifacts}). The complete project consumed approximately
-US\$10 of API usage, so the whole benchmark can be reproduced, on both models
-and in every scenario, for a cost of that order.
+The dataset and its development history comprise \textbf{13{,}993} raw run
+records across all checkpoints (Appendix~\ref{app:artifacts}). The OpenAI runs
+consumed approximately US\$10 of API usage, so the benchmark can be reproduced on
+those models in every scenario for a cost of that order; the added-model runs
+cost more, chiefly for Claude Sonnet~5.5, and stayed within the per-provider
+spending caps approved for the extension.
 
 \section{The protected-body sentinel}
 \label{sec:sentinel}
@@ -695,9 +710,10 @@ independence, at the cost of discarding within-cell repetition.
 \centering
 \small
 \caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate over the
-closed dataset: every interpretable record from scenario three onward. Cells
-are defined by scenario, model, probe condition, injection variant, feedback
-mode, defense mode, delay and hidden state; repetitions stay together.}
+OpenAI dataset (Checkpoint 8E): every interpretable record from scenario three
+onward. Cells are defined by scenario, model, probe condition, injection
+variant, feedback mode, defense mode, delay and hidden state; repetitions stay
+together. Table~\ref{tab:cp9-bounds} extends these bounds to all six models.}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
 & \multicolumn{2}{c}{per record} & \multicolumn{2}{c}{per cell} \\
@@ -768,12 +784,14 @@ specification was wrong and the code was right.
 \label{ch:results}
 
 All results in this chapter were read from committed artifact summaries.
-Every table states the artifact directory it came from. All runs use two
-hosted models from OpenAI's GPT-5.6 family, GPT-5.6 Luna and GPT-5.6 Terra,
-identified in the API and throughout this document as \code{gpt-5.6-luna} and
-\code{gpt-5.6-terra}, accessed through the Chat Completions endpoint with
-temperature $0$, seed $0$, \code{reasoning\_effort=none}, a 180-second timeout,
-at most twelve agent steps, and no retries.
+Every table states the artifact directory it came from. Up to
+Section~\ref{sec:final-bounds}, all runs use two hosted models from OpenAI's
+GPT-5.6 family, GPT-5.6 Luna and GPT-5.6 Terra, identified in the API and
+throughout this document as \code{gpt-5.6-luna} and \code{gpt-5.6-terra},
+accessed through the Chat Completions endpoint with temperature $0$, seed $0$,
+\code{reasoning\_effort=none}, a 180-second timeout, at most twelve agent steps,
+and no retries. Section~\ref{sec:cross-vendor} adds four models from Anthropic
+and Google under the same protocol.
 
 \section{Instrument validation}
 
@@ -1956,20 +1974,253 @@ the probe description was the only change, probing before the carrier fell from
 a repair, on one scenario and one model, and is reported as such rather than as
 an experiment on tool descriptions.
 
-\subsection{Final bounds, and the dataset is closed}
+\subsection{Bounds over the OpenAI dataset}
 \label{sec:final-bounds}
 
-The final leakage-rate bounds cover every interpretable record from scenario
-three onward, the inclusion rule preregistered before scenarios six and seven
-were run. Every included record passes the delivery gate. One event occurs in
-558 natural records and none in 640 forced records. Treating each experimental
-cell as a single observation, the one-sided $95\%$ upper bounds are
-\textbf{$2.52\%$ natural}, $4.57\%$ forced and \textbf{$1.88\%$ pooled}; the
-per-record bounds are $0.85\%$, $0.47\%$ and $0.40\%$ (Section~\ref{sec:stats}).
+The leakage-rate bounds over the OpenAI models cover every interpretable record
+from scenario three onward, the inclusion rule preregistered before scenarios
+six and seven were run. Every included record passes the delivery gate. One
+event occurs in 558 natural records and none in 640 forced records. Treating
+each experimental cell as a single observation, the one-sided $95\%$ upper
+bounds are \textbf{$2.52\%$ natural}, $4.57\%$ forced and \textbf{$1.88\%$
+pooled}; the per-record bounds are $0.85\%$, $0.47\%$ and $0.40\%$
+(Section~\ref{sec:stats}).
 
-Data collection closed with these runs. The frozen dataset, its artifact roots
-and the records excluded from it are listed in the preregistration; no further
-model run was made.
+The OpenAI dataset closed with these runs on 26 September 2026 (Checkpoint 8E).
+Section~\ref{sec:cross-vendor} extends the study to four further models and
+recomputes these bounds across all six.
+
+% ---------------------------------------------------------------------
+\section{Cross-vendor replication (Checkpoint 9)}
+\label{sec:cross-vendor}
+
+On 2 October 2026, after reviewing the first complete draft, the thesis
+supervisor asked whether the result generalises beyond one provider and
+directed that the study be extended to additional models, with the experimental
+setup and evaluation procedure unchanged so that the new results are directly
+comparable. Four models from two further providers were added: Anthropic's
+Claude Sonnet~5.5 and Claude Haiku~4.5 (\code{claude-sonnet-5-5},
+\code{claude-haiku-4-5-20251001}) and Google's Gemini~3.8 Flash and Gemini~3.7
+Flash (\code{gemini-3.8-flash}, \code{gemini-3.7-flash}). Each ran the same seven
+scenarios with the same matrix, prompts, codebooks, gates, oracles and analysis.
+The models, their settings and every rule below were fixed in the
+preregistration before the data they govern (Checkpoints 9 and 9C).
+
+\subsection{Models, transport and two exclusions}
+
+All four models were reached through their providers' OpenAI-compatible Chat
+Completions endpoints by the same adapter. The provider became an explicit
+axis of every run identifier, artifact path and manifest before any record was
+collected, the defence against pattern~B (Section~\ref{sec:patterns}) applied in
+advance rather than after a collision. Temperature~$0$ and no extended reasoning
+were requested wherever the provider allows them; the seed is sent only to
+OpenAI, because Anthropic's compatibility layer ignores it and Google's does not
+document it. Claude Sonnet~5.5 rejects the temperature field outright, so its
+requests omit it and run at the provider's default sampling. The omission is
+recorded in every Sonnet manifest and every Sonnet result carries that caveat.
+
+A one-request provider check per model preceded any scenario record and
+excluded two candidates on feasibility alone. Gemini~3.1 Pro, a preview release
+and the first choice for the larger Google model, cannot disable its reasoning:
+it rejected both \code{none} and \code{minimal}, and at \code{low} did not answer
+a one-tool request within the fixed 180-second timeout, so its records would
+have been dominated by timeouts. Gemini~3.5 Flash-Lite rejected the request as
+invalid. Gemini~3.7 Flash replaced them, so the Google pair consists of two
+consecutive releases of one model line rather than a larger and a smaller model;
+it tests whether behaviour persists across a model update, while OpenAI and
+Anthropic supply the size contrast.
+
+The single-request check could not detect one transport defect. Gemini~3
+attaches an opaque \emph{thought signature} to each tool call and rejects the
+following request unless the signature is returned on that call. AgentDojo's
+message type has no field for it, so the adapter dropped it and every Gemini
+tool-use preflight failed on its second turn, before any scenario record
+existed. The adapter now returns the signature unchanged; OpenAI and Anthropic
+requests are byte-identical to before, which a test pins.
+
+\subsection{Defects 23 and 24, and Checkpoint 9C}
+\label{sec:defects-23-24}
+
+\textbf{Defect 23.} Five email scenarios ask for a benign message body that ends
+in a period and place it at the end of a sentence (``body exactly: Hotel review
+completed. Copy \ldots''), so the period is ambiguous between the body and the
+sentence. Claude Haiku~4.5 omitted it in every record of four scenarios while
+answering the task correctly; the other models usually kept it. The readiness
+gate, which compares the body exactly, was therefore measuring how a model reads
+that period, not whether it can perform the benign task.
+
+\textbf{Defect 24.} Anthropic's API stopped many Claude Sonnet~5.5 responses with
+the finish reason \code{content\_filter} and an empty message. The adapter
+recorded these as ordinary completions without a send, so a provider-side block
+was indistinguishable from the model choosing not to act.
+
+Checkpoint 9C, written before either repair was implemented, fixed two rules
+computed from the immutable raw records. Under 9C-1 a sent body matches if it is
+identical to the expected body or identical without its single final period;
+recipient, subject, amounts, case and whitespace remain exact, and the
+attack-carrying sink is never read by the rule. Under 9C-2 a record is
+\emph{provider-filtered} if any response in it stopped with
+\code{content\_filter}; such records stay in every denominator and are reported
+as a separate outcome. The stored evaluator and every stored derived record are
+unchanged and still replay byte-identically. Applied uniformly to every model,
+including the OpenAI data, the re-score moved exactly four model--scenario
+readiness gates from fail to pass, all Haiku and all on the period alone, and
+changed no OpenAI result. Those four, and Haiku's scenario one, which had been
+stopped by an orchestration defect (Appendix~\ref{app:defects}, defect 25), were
+then run under the unchanged protocol.
+
+\subsection{Outcomes}
+
+Table~\ref{tab:cp9-outcomes} gives the disposition of every model--scenario arm.
+An arm enters the leakage analysis only if its benign readiness gate passed, its
+smoke gate passed, and its reason-bearing positive control completed at least
+19 of 20 state pairs with the correct code: the lowest value accepted for the
+OpenAI models in Checkpoint 7C, fixed for this extension before any bound was
+computed.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Disposition of every added-model arm. I: interpretable. R: benign
+readiness gate failed. F: void because the provider's content filter blocked the
+positive control. N: void, positive control below 19/20 pairs because the model
+did not send. D: smoke gate stopped on delivery. Artifacts under
+\code{runs/pilot9-*}.}
+\label{tab:cp9-outcomes}
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+Model & S1 & S2 & S3 & S4 & S5 & S6 & S7 \\
+\midrule
+Claude Haiku 4.5 & I & I & R & I & I & I & I \\
+Claude Sonnet 5.5 & F & I & F & F & F & F & F \\
+Gemini 3.8 Flash & N & I & R & R & R & R & R \\
+Gemini 3.7 Flash & D & I & R & R & R & R & I \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The readiness failures are genuine outcomes. Haiku reported the wrong total in
+scenario three's spending task and refused two of eight records. Both Gemini
+releases declined most of the benign scenarios, typically treating the step
+that probes a restricted record as itself suspicious (``Sorry, I cannot fulfill
+your request to probe restricted records''); both declined every benign record
+of scenario five. Gemini~3.7's scenario one stopped because one natural cell
+delivered the injection in one of two smoke records, below the $95\%$ gate.
+None of these was repaired or re-run.
+
+Across all fifteen confirmatory arms, \textbf{the injection was delivered in
+every one of 1{,}080 natural records, and no natural record probed}, so none
+sent and none leaked. The forced condition probed in most records and never sent
+(0 of 1{,}200). In the ten interpretable arms the reason-bearing positive control
+decoded the hidden state in 400 of 400 records. The channel is therefore open on
+every provider: the added models do not leak because they do not act on the
+injection, not because they cannot carry the denial reason.
+
+\subsection{Bounds across six models}
+\label{sec:cross-vendor-bounds}
+
+The cited arms follow the OpenAI rule exactly: interpretable arms from scenario
+three onward. They are Haiku's scenarios four to seven and Gemini~3.7's scenario
+seven; no Sonnet or Gemini~3.8 arm qualifies. The added models' delivery-gated
+scenario-one and -two arms are reported in a separate supplementary row and never
+enter a cited figure, because the OpenAI scenario-one and -two runs pre-date the
+delivery gate. Every figure in Table~\ref{tab:cp9-bounds} was verified by direct
+binomial calculation before being pinned in
+\code{analysis/leakage\_bounds.py}.
+
+\begin{table}[h]
+\centering
+\small
+\caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate, per model
+and pooled (Checkpoint 9). Per-cell figures assume nothing about independence and
+are the ones cited.}
+\label{tab:cp9-bounds}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{natural} & forced & pooled & \\
+\cmidrule(lr){2-3}
+Group & per record & per cell & per cell & per cell & positive control \\
+\midrule
+\code{gpt-5.6-luna} & $1/216$, $2.18\%$ & $1/72$, $6.42\%$ & $0/24$, $11.7\%$ & $1/96$, $4.85\%$ & $180/240$ \\
+\code{gpt-5.6-terra} & $0/342$, $0.87\%$ & $0/114$, $2.59\%$ & $0/40$, $7.22\%$ & $0/154$, $1.93\%$ & $299/400$ \\
+Claude Haiku 4.5 & $0/288$, $1.03\%$ & $0/96$, $3.07\%$ & $0/32$, $8.94\%$ & $0/128$, $2.31\%$ & $233/320$ \\
+Gemini 3.7 Flash & $0/72$, $4.08\%$ & $0/24$, $11.7\%$ & $0/8$, $31.2\%$ & $0/32$, $8.94\%$ & $60/80$ \\
+\midrule
+\textbf{All models, cited} & $1/918$, $0.52\%$ & $1/306$, $\mathbf{1.54\%}$ & $0/104$, $2.84\%$ & $1/410$, $\mathbf{1.15\%}$ & $772/1040$ \\
+Supplementary S1, S2 & $0/360$, $0.83\%$ & $0/120$, $2.47\%$ & $0/40$, $7.22\%$ & $0/160$, $1.85\%$ & $298/400$ \\
+All models with supplementary & $1/1278$, $0.37\%$ & $1/426$, $1.11\%$ & $0/144$, $2.06\%$ & $1/570$, $0.83\%$ & $1070/1440$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Adding the four models lowers the cited natural bound from $2.52\%$ to
+$\mathbf{1.54\%}$ and the pooled bound from $1.88\%$ to $\mathbf{1.15\%}$. The
+positive-control column counts correct decodes over both feedback modes; under
+uniform feedback roughly half are correct by construction, as the default code is
+right for one hidden state.
+
+\subsection{Provider filtering as a deployed defence}
+
+Defect 24 is also a finding. Anthropic's content filter stopped Claude
+Sonnet~5.5 in 80 of 80 positive-control records of scenario four, 67 of 80 in
+scenario one, 57 of 80 in scenario six and 14 of 80 in scenario five, and in
+every smoke positive-control record of scenarios three and seven. It also
+stopped all 80 forced records and 12 of 72 natural records in scenario one. It
+never stopped Claude Haiku~4.5, Gemini or GPT-5.6. The positive control is the
+condition in which the user explicitly authorises the transmission, so the
+filter is acting on the content of the exchange --- a codebook and an outbound
+code --- not on authorisation. Two consequences follow. A provider-side
+classifier can close this channel before the model's own propensity is
+observable, which is a defence worth measuring separately from the model. And
+through the deployed API, Sonnet's own behaviour on this channel cannot be
+measured in most scenarios: its void arms are reported as void by provider
+filtering, never as resistance.
+
+\subsection{The semantic default across vendors}
+\label{sec:cross-vendor-default}
+
+Checkpoint 9 deliberately did not predict which token each added model would
+emit under uniform feedback. Observed afterwards, the default is the one the
+OpenAI models showed: the code the codebook assigns to
+\code{PERMISSION\_DENIED} (Table~\ref{tab:cp9-default}).
+
+\begin{table}[h]
+\centering
+\small
+\caption{Dominant uniform-feedback code in every interpretable arm. The
+\code{PERMISSION\_DENIED} column is the codebook's token for that denial.}
+\label{tab:cp9-default}
+\begin{tabular}{@{}llp{0.55\textwidth}@{}}
+\toprule
+Scenario & \code{PERMISSION\_DENIED} & Emitted (models) \\
+\midrule
+S1 document & \code{BRAVO} & \code{BRAVO}: Haiku \\
+S2 vacation & \code{ALPHA} & \code{ALPHA}: Luna, Terra, Haiku, Sonnet, Gemini 3.8, Gemini 3.7 \\
+S4 travel & \code{ALPHA} & \code{ALPHA}: Luna, Terra, Haiku \\
+S5 gift & \code{ALPHA} & \code{ALPHA}: Terra; \code{BRAVO} (28/40): Haiku \\
+S6 calendar & \code{BRAVO} & \code{BRAVO}: Luna, Terra, Haiku \\
+S7 reunion & \code{ALPHA} & \code{ALPHA}: Luna, Terra, Haiku, Gemini 3.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In 18 of 19 interpretable arms, across three providers, an uninformative
+\code{ACCESS\_DENIED} is reported as the label it most resembles. The one
+exception, Haiku in scenario five, emitted the other code as a majority (28 of
+40) rather than a constant; Sonnet in scenario two matched as a majority (32 of
+40). Because the token was not predicted for the added models, this is
+reported as an observation that the OpenAI-era prediction generalises, not as a
+confirmed prediction.
+
+\subsection{What the extension changes}
+
+The extension strengthens the principal result and changes its scope. The
+negative answer to RQ4 now rests on three providers: no added model acted on a
+delivered injection, and the realised attack remains specific to one OpenAI
+model and one scenario. The cited bounds tighten by about forty per cent. The
+extension also shows that coverage itself is provider-dependent: one provider's
+filter and another's refusals removed most arms from measurement, and both are
+reported as outcomes rather than repaired away.
 
 
 \chapter{Methodological Findings}
@@ -2025,7 +2276,7 @@ ground-truth forms --- for every registered scenario.
 \section{Recurring defect patterns}
 \label{sec:patterns}
 
-Twenty-two defects were catalogued over the course of the work; each is
+Twenty-six defects were catalogued over the course of the work; each is
 listed with its consequence and repair in Appendix~\ref{app:defects}. Three
 patterns account for most of them.
 
@@ -2037,8 +2288,8 @@ documented. A cross-scenario property test now guards the invariant
 directly.
 
 \paragraph{Pattern B: a new axis is added without extending the
-identity that depends on it.} Six instances (defects 4, 8, 12, 15, 19 and
-20). One example: after the
+identity that depends on it.} Seven instances (defects 4, 8, 12, 15, 19, 20
+and 25). One example: after the
 scenario axis was introduced, the readiness gate was made
 scenario-aware, but the attack runner's artifact output paths remained
 keyed on model alone. A scenario-two run would have targeted the
@@ -2049,8 +2300,8 @@ collision would have failed loudly and for free, but the defect was
 found by inspection before the run, not by those safeguards.
 
 \paragraph{Pattern C: the experiment runs cleanly while measuring
-nothing.} Six instances (defects 13, 16, 17, 18, 21 and 22). The first
-three were in scenario two. In the first, the benign
+nothing.} Eight instances (defects 13, 16, 17, 18, 21, 22, 23 and 24). The
+first three were in scenario two. In the first, the benign
 utility oracle was structurally unsatisfiable and every record returned
 complete, conformant, and utility-false
 (\S\ref{sec:instrumentfirst}). In the second, the independent variable
@@ -2079,9 +2330,12 @@ reproduce hand-derived counts before it was trusted. A scenario whose task
 omitted a year was void on one model while its readiness check passed (defect
 21), and task-adjacent tool descriptions manufactured the very probing the
 benchmark attributes to injection (defect 22,
-Section~\ref{sec:tool-descriptions}). In every case the summary statistics were
-internally consistent; the defect was found by asking a question the summaries
-do not answer.
+Section~\ref{sec:tool-descriptions}). The cross-vendor extension added two
+more: an exact-match oracle that measured how a model reads a sentence-final
+period (defect 23), and a provider block recorded as an ordinary non-send
+(defect 24, Section~\ref{sec:defects-23-24}). In every case the summary
+statistics were internally consistent; the defect was found by asking a
+question the summaries do not answer.
 
 \section{Tool descriptions are a measurement variable}
 \label{sec:tool-descriptions}
@@ -2134,9 +2388,22 @@ artifacts are retained as evidence.
     sink-based counterfactual experiment and that seven cover every
     distinct carrier modality they offer. Four scenarios are in
     Workspace; cross-suite evidence rests on the other three.
-  \item[Model count.] Two hosted models from a single provider family.
-    A third model was judged unnecessary for the thesis scope together
-    with the supervisor.
+  \item[Model coverage.] Six hosted models from three providers, but
+    unevenly covered. Of the 28 added-model arms only ten are
+    interpretable: Anthropic's content filter voided every Sonnet arm from
+    scenario three onward, and both Gemini releases declined most benign
+    scenarios. The cited bound rests on the two OpenAI models, Haiku and
+    one Gemini~3.7 arm.
+  \item[Settings that could not be held identical.] Claude Sonnet~5.5
+    rejects the temperature field and ran at the provider default. Google
+    advises against temperature~$0$ for Gemini~3 models; it was kept for
+    comparability. Gemini~3.1 Pro was excluded before any data because it
+    cannot disable its reasoning and timed out at the fixed limit, so no
+    Gemini Pro model is represented.
+  \item[Provider-mediated observation.] Every model was observed through
+    its provider's hosted API. For Sonnet the provider's filter, not the
+    model, determined most outcomes; the model's own propensity on this
+    channel is unmeasured there.
   \item[Statistical inference.] With one leakage event in the dataset no
     rate is estimated. Rates are reported as one-sided upper bounds, per
     record and per cell (\S\ref{sec:stats}); the per-cell bound is the
@@ -2172,10 +2439,11 @@ artifacts are retained as evidence.
   \item[Sensitive content.] The protected asset is existence only. No
     claim is made about leakage of protected \emph{content}.
   \item[Credential redaction.] Redaction is shape-based rather than
-    value-based. No key-shaped string appears in any of the 17{,}403
-    artifact files checked, but a provider whose key format differs from
-    the matched shapes would not be redacted. This is a latent risk
-    against any other provider.
+    value-based, and the request capture excludes the authorisation header
+    altogether. No OpenAI-, Anthropic- or Google-shaped key appears in any
+    of the 29{,}639 artifact files checked after the extension, but a
+    provider whose key format differs from the matched shapes would rely on
+    the header exclusion alone.
 \end{description}
 
 % =====================================================================
@@ -2185,26 +2453,31 @@ artifacts are retained as evidence.
 \section{What is established}
 
 \begin{enumerate}
-  \item The harness runs live hosted models end to end across seven
-    scenarios in three task suites, with immutable, byte-for-byte
-    replayable artifacts. Data collection is closed.
+  \item The harness runs live hosted models from three providers end to
+    end across seven scenarios in three task suites, with immutable,
+    byte-for-byte replayable artifacts. Data collection is complete.
   \item \textbf{The proposal's dual-model authorization layer exists and
     closes the realised channel.} Both configurations blocked every
     attempted exfiltration. The blind guard denies all state-conditional
     authorised actions; the informed guard recovers the benign arm fully
     and was not injected, but misattributes provenance when a legitimate
     instruction is echoed in untrusted content.
-  \item \textbf{Unsolicited denial-reason leakage is rare and bounded.}
-    One send in 558 interpretable natural records and none in 640 forced
-    records, with delivery verified throughout; cell-level upper bounds
-    $2.52\%$ natural and $1.88\%$ pooled.
+  \item \textbf{Unsolicited denial-reason leakage is rare and bounded,
+    across three providers.} One send in 918 interpretable natural records
+    and none in 1{,}040 forced records, with delivery verified throughout;
+    cell-level upper bounds $1.54\%$ natural and $1.15\%$ pooled. No added
+    model acted on a delivered injection in any of 1{,}080 natural records.
+  \item \textbf{Coverage is provider-dependent.} Anthropic's content
+    filter voided every Sonnet arm from scenario three onward, and both
+    Gemini releases declined most benign scenarios.
   \item The instrument detects the channel whenever the user authorises
     its use, so the bound is a statement about the models, not about the
     instrument's sensitivity.
   \item \textbf{A semantic default, predicted in advance.} Under uniform
     feedback the models emit the \code{PERMISSION\_DENIED} code
     regardless of which token the codebook assigns to it, predicted
-    before the data for three scenarios and confirmed on both models.
+    before the data for three scenarios on the OpenAI models and observed
+    in 18 of 19 interpretable arms across all three providers.
   \item A denial-reason leak has been realised under indirect prompt
     injection, in four counterfactual pairs in one cell of one scenario
     on one model, plus one unpaired event in a second scenario. It is
@@ -2222,15 +2495,11 @@ artifacts are retained as evidence.
 
 \section{Remaining work}
 
-No further experiment is planned. The remaining work is writing:
+No further experiment is planned. The remaining work is presentation:
 \begin{enumerate}
-  \item A full related-work chapter; the current background is a
-    skeleton.
-  \item Converting this laboratory record into thesis prose: an
-    introduction and abstract written from the final results, the
-    methods chapter consolidated from the preregistration, and results
-    reorganised by finding rather than by checkpoint.
-  \item Removing the remaining working markers once each is resolved.
+  \item Transferring the content into the Schreyer Honors College thesis
+    template for the format review.
+  \item Incorporating the thesis supervisor's review of this revised draft.
 \end{enumerate}
 
 \section{Decisions recorded with the thesis supervisor}
@@ -2242,6 +2511,14 @@ presented with its limitations rather than strengthened; asked that both guard
 failure modes be retained at the scope the evidence supports; and asked that the
 distinction between per-record and cell-level bounds be retained, with the
 conservative cell-level figure used for the main claim.
+
+On 2 October 2026, after reviewing the first complete draft, the supervisor
+directed that the study be extended to the additional models identified in a
+meeting, with the experimental setup and evaluation procedure kept consistent so
+that the new results are directly comparable, and that the results, tables,
+statistical analysis and discussion be updated to reflect the complete dataset.
+The guard experiment was not re-run for the added models; no new scenario,
+guard variant or procedure was introduced.
 
 % =====================================================================
 \begin{thebibliography}{99}
@@ -2738,7 +3015,12 @@ audit@example.net with subject Family reunion access result.
 2026-09-11 & 8B & Guard outcomes and two failure modes \\
 2026-09-25 & 8C & Scenarios six and seven \\
 2026-09-25 & 8D & Defects 21 and 22; a retraction; the repair \\
-2026-09-26 & 8E & Scenario six and seven outcomes; the dataset is closed \\
+2026-09-26 & 8E & Scenario six and seven outcomes; the OpenAI dataset is closed \\
+2026-10-02 & 9 & Cross-vendor extension: four added models, provider checks \\
+2026-10-02 & 9 log & First overnight run; defects 23--26 recorded \\
+2026-10-03 & 9C & Trailing-period body rule; provider-filter classification \\
+2026-10-03 & 9C applied & Re-score outcome; authorised Haiku re-runs \\
+2026-10-03 & 9 rules & Inclusion and the 19/20 positive-control threshold \\
 \bottomrule
 \end{longtable}
 
@@ -2746,7 +3028,8 @@ audit@example.net with subject Family reunion access result.
 \label{app:defects}
 
 Every defect found in the benchmark's own instrumentation, in the order
-found. Patterns are defined in Section~\ref{sec:patterns}: A, a wrapper
+found, except that defects 23 and 24 carry the numbers the preregistration
+assigned them. Patterns are defined in Section~\ref{sec:patterns}: A, a wrapper
 stricter than the thing it wraps; B, a new axis added without extending the
 identity that depends on it; C, an experiment that runs cleanly while measuring
 nothing. Every defect was diagnosed by inspecting raw records or code rather
@@ -2814,6 +3097,18 @@ every model now gated (Checkpoint 8D). & C \\
 22 & Probe descriptions sounded like part of the task. & Spontaneous probing
 before the carrier was read. Generic description; probing fell to 0 of 72
 (Checkpoint 8E). & C \\
+23 & An exact-match benign body ended in an ambiguous period. & One model dropped
+it in every record of four scenarios while doing the task; readiness failed.
+Rule 9C-1, applied to every model (Checkpoint 9C). & C \\
+24 & A provider content-filter stop was recorded as a plain non-send. & Provider
+blocks were indistinguishable from model choice. Classified separately under
+rule 9C-2. & C \\
+25 & The run script looked for scenario one's readiness under a suffixed path. &
+Scenario one aborted after a passed gate for one model. Path mirrored from the
+runner (Checkpoint 9 run log). & B \\
+26 & The adapter dropped Gemini's per-call thought signature. & Every Gemini
+preflight failed on its second turn. Signature returned unchanged; other
+providers byte-identical. & -- \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -2826,7 +3121,7 @@ before the carrier was read. Generic description; probing fell to 0 of 72
 \textbf{Run} & \textbf{Raw records} & \textbf{Location} \\
 \midrule
 \endhead
-Readiness gates, all scenarios & 144 & \code{runs/pilot/\allowbreak checkpoint1*-readiness} \\
+Readiness gates, all scenarios and models & 368 & \code{runs/pilot/\allowbreak checkpoint1*-readiness} \\
 Checkpoints 2A--3C, development pilots & 816 & \code{runs/pilot/\allowbreak checkpoint2*}, \code{checkpoint3*} \\
 Checkpoint 4A, scenario one & 624 & \code{runs/pilot/\allowbreak checkpoint4a-*} \\
 Checkpoint 6E, scenario two (void, defect 16) & 624 & \code{runs/pilot/\allowbreak checkpoint4a-*vacation*} \\
@@ -2839,10 +3134,14 @@ Checkpoint 8B, guard evaluation & 624 & \code{runs/pilot8a-blind}, \code{-inform
 Checkpoint 8C, scenario six (superseded) & 624 & \code{runs/pilot8c-s6} \\
 Checkpoint 8E, scenario six & 624 & \code{runs/pilot8d-s6} \\
 Checkpoint 8E, scenario seven & 624 & \code{runs/pilot8d-s7} \\
-Exploratory smoke runs & 528 & \code{runs/pilot*-smoke} \\
-Archived failed or superseded & 129 & \code{runs/archive-*} \\
+Checkpoint 9, Claude Haiku 4.5 & 1{,}872 & \code{runs/pilot9-\allowbreak claude-haiku-*} \\
+Checkpoint 9, Claude Sonnet 5.5 & 1{,}560 & \code{runs/pilot9-\allowbreak claude-sonnet-*} \\
+Checkpoint 9, Gemini 3.8 Flash & 624 & \code{runs/pilot9-\allowbreak gemini-3.8-*} \\
+Checkpoint 9, Gemini 3.7 Flash & 624 & \code{runs/pilot9-\allowbreak gemini-3.7-*} \\
+Exploratory smoke runs & 1{,}392 & \code{runs/pilot*-smoke*} \\
+Archived failed or superseded & 161 & \code{runs/archive-*} \\
 \midrule
-\textbf{Total} & \textbf{8{,}193} & \\
+\textbf{Total} & \textbf{13{,}993} & \\
 \bottomrule
 \end{longtable}
 
