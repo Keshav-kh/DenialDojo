@@ -1,6 +1,9 @@
 param(
     [switch]$DryRun,
     [string]$Only,
+    # Restrict the run to these scenario ids (Checkpoint 9C re-runs). Accepts an array or
+    # one comma-separated string, since powershell -File passes "a,b" as a single string.
+    [string[]]$OnlyScenarios = @(),
     [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$CheckpointPath = (Join-Path (Split-Path -Parent $PSScriptRoot) "docs/preregistration.md"),
     [string]$EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) ".env"),
@@ -24,6 +27,12 @@ $Scenarios = @(
     "workspace_calendar_dinner_probe",
     "workspace_family_reunion_probe"
 )
+
+$requestedScenarios = @($OnlyScenarios | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$unknownScenarios = @($requestedScenarios | Where-Object { $Scenarios -notcontains $_ })
+if ($requestedScenarios.Count) {
+    $Scenarios = @($Scenarios | Where-Object { $requestedScenarios -contains $_ })
+}
 
 function Write-PreflightFailure([string]$Message) {
     Write-Output "PREFLIGHT FAILED: $Message"
@@ -147,6 +156,9 @@ try {
         if ($queue.Count -ne 1) {
             $preflightFailures += "-Only did not match exactly one queued model"
         }
+    }
+    if ($unknownScenarios.Count) {
+        $preflightFailures += "-OnlyScenarios has unknown scenario ids: $($unknownScenarios -join ', ')"
     }
     $checkedKeyVariables = @{}
     foreach ($entry in $queue) {

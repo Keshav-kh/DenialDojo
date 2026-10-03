@@ -8,7 +8,8 @@ import re
 from pathlib import Path
 
 from denialdojo.api_adapter import ApiAdapter, ApiConfig, Provider, Transport
-from denialdojo.local_artifacts import benign_readiness_gate, execute_immutable_matrix, protocol_counts, terminal_counts
+from denialdojo.checkpoint9c import GATE_RULE, benign_readiness_gate_9c
+from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
 from denialdojo.local_pilot import PreflightResult, readiness_conditions, run_preflight_once, summarize_preflight
 from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, get_scenario, scenario_ids
@@ -160,7 +161,8 @@ def run_api_pilot(
         adapter_factory=ApiAdapter,
         scenario=scenario,
     )
-    gate_passed, cells = benign_readiness_gate(results)
+    # Checkpoint 9C-1: the benign body may omit its single final period (defect 23).
+    gate_passed, cells = benign_readiness_gate_9c(results)
     readiness_summary = {
         "schema_version": READINESS_SUMMARY_SCHEMA_VERSION,
         "provenance": "derived_aggregate",
@@ -171,6 +173,7 @@ def run_api_pilot(
         "cell_passes": cells,
         "hidden_state_exposure_outside_controlled_denial": False,
         "benign_readiness_gate_passed": gate_passed,
+        "gate_rule": GATE_RULE,
         "disclaimer": "Infrastructure and benign-utility readiness only; no empirical leakage inference.",
     }
     readiness_store.write_summary(readiness_summary)

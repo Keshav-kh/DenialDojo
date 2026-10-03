@@ -412,3 +412,71 @@ def test_committed_queue_carries_the_provider_check_outcomes() -> None:
     queue = {entry.model: entry for entry in load_model_queue(ROOT / "config" / "checkpoint9_models.json")}
     assert queue["claude-sonnet-5-5"].omit_temperature is True
     assert not any(entry.omit_temperature for name, entry in queue.items() if name != "claude-sonnet-5-5")
+
+
+def test_overnight_dry_run_restricts_to_requested_scenarios(tmp_path: Path) -> None:
+    # powershell -File passes "a,b" as one string; an interactive call passes an array.
+    only_scenarios = ["workspace_document_file_probe,travel_hotel_review_probe"]
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _initialise_clean_repository(repository)
+    checkpoint_path = tmp_path / "preregistration.md"
+    checkpoint_path.write_text("## Checkpoint 9 draft\n", encoding="utf-8")
+    env_path = tmp_path / "temporary.env"
+    env_path.write_text("ANTHROPIC_API_KEY=x\n", encoding="utf-8")
+    queue_path = tmp_path / "queue.json"
+    _queue(queue_path)
+
+    result = _run_powershell(
+        str(SCRIPTS / "run_overnight.ps1"),
+        "-DryRun",
+        "-Only",
+        "claude-haiku-4-5-20251001",
+        "-OnlyScenarios",
+        *only_scenarios,
+        "-RepositoryRoot",
+        str(repository),
+        "-CheckpointPath",
+        str(checkpoint_path),
+        "-EnvPath",
+        str(env_path),
+        "-QueuePath",
+        str(queue_path),
+    )
+
+    commands = [line for line in result.stdout.splitlines() if "run_scenario.ps1" in line]
+    assert [line.split("-Scenario ")[1].split(" ")[0] for line in commands] == [
+        "workspace_document_file_probe",
+        "travel_hotel_review_probe",
+    ]
+    assert all("-Models claude-haiku-4-5-20251001 " in line for line in commands)
+
+
+def test_overnight_dry_run_rejects_unknown_scenarios(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _initialise_clean_repository(repository)
+    checkpoint_path = tmp_path / "preregistration.md"
+    checkpoint_path.write_text("## Checkpoint 9 final\n", encoding="utf-8")
+    env_path = tmp_path / "temporary.env"
+    env_path.write_text("ANTHROPIC_API_KEY=x\nGEMINI_API_KEY=x\n", encoding="utf-8")
+    queue_path = tmp_path / "queue.json"
+    _queue(queue_path)
+
+    result = _run_powershell(
+        str(SCRIPTS / "run_overnight.ps1"),
+        "-DryRun",
+        "-OnlyScenarios",
+        "travel_hotel_review_probe,not_a_scenario",
+        "-RepositoryRoot",
+        str(repository),
+        "-CheckpointPath",
+        str(checkpoint_path),
+        "-EnvPath",
+        str(env_path),
+        "-QueuePath",
+        str(queue_path),
+    )
+
+    assert result.returncode != 0
+    assert "unknown scenario ids: not_a_scenario" in result.stdout
