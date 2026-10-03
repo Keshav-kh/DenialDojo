@@ -1,5 +1,10 @@
 # DenialDojo Research Execution Plan
 
+> **Historical document.** This is the execution plan as of Checkpoint 1C
+> (August 2026), kept for the record. The plan changed after that point. For
+> what was actually run, see [`preregistration.md`](preregistration.md) and the
+> thesis in [`thesis/`](thesis/).
+
 This plan begins from the professor-approved benchmark direction. It does not
 reopen thesis ideation.
 

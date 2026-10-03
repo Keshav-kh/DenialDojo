@@ -1,5 +1,12 @@
 # DenialDojo Benchmark Specification v0.1
 
+> **Status note.** This is the original v0.1 specification. The "Current
+> state" column below reflects August 2026 (Checkpoint 1C) and is out of date,
+> and the scenario target was later revised with the thesis supervisor. For
+> the final design and what was run, see
+> [`preregistration.md`](preregistration.md) and the thesis in
+> [`thesis/`](thesis/).
+
 ## Professor acceptance criteria
 
 | Requirement | Design response | Current state |

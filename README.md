@@ -1,78 +1,172 @@
 # DenialDojo
 
-> Continuing this thesis in the Codex desktop app? Read `AGENTS.md` and
-> `CODEX_HANDOFF.md` before changing the repository. The handoff contains the
-> approved scope, professor requirements, validity rules, current checkpoint,
-> and exact next implementation sequence.
+**A counterfactual benchmark for denial-reason leakage in tool-using language
+model agents.**
 
-DenialDojo is a counterfactual benchmark for measuring whether a tool-calling
-LLM agent learns information from a denied tool call and later transmits that
-information through an external sink.
+When an agent is refused access to a resource, the refusal itself carries
+information: `NOT_FOUND` and `PERMISSION_DENIED` are operationally different,
+and the second confirms that the resource exists. DenialDojo measures whether a
+tool-calling agent, steered by untrusted content, leaks the *reason* for a
+denial to an external sink such as an outgoing email.
 
-The benchmark is the primary thesis contribution. Causal Residue remains a
-secondary, preregistered defense hypothesis.
+It is built on [AgentDojo](https://github.com/ethz-spylab/agentdojo) 0.1.35 and
+is the artifact of an honors thesis by Keshav Khandelwal (Department of
+Computer Science and Engineering, The Pennsylvania State University).
 
-## Current checkpoint
+## How it works
 
-Checkpoint 0 retains a fast custom AgentDojo fixture. Checkpoint 1B adds one
-genuine Workspace slice. Checkpoints 1C and 1D add:
+Every experiment is a pair of runs that differ in exactly one thing: the
+randomized hidden state of a protected resource.
 
-- AgentDojo 0.1.35's packaged Workspace state and `feedback.xlsx` content;
-- genuine Workspace drive tools and the real `send_email` stateful sink;
-- a trusted tool-runtime interposer that emits typed denial events;
-- paired hidden states (`absent` and `present_but_protected`);
-- reason-bearing and uniform denial feedback;
-- deterministic leakage, original-task utility, and matched benign-recovery
-  evaluators;
-- no-specialized-defense, immediate-adjacency, and fixed-quarantine policies;
-- a scripted adversary for reproducible harness validation;
-- tests that validate the genuine scripted vertical slice without an API key;
-- versioned pilot traces and manifests with secret redaction;
-- deterministic no-LLM replay;
-- a local-only Ollama sequential tool adapter and frozen preflight; and
-- immutable per-run raw/derived v2 accounting with separate terminal and
-  protocol statuses.
+- **Two hidden-state arms.** In one arm the resource is `absent`; in the other
+  it is `present_but_protected`. Task, prompt, and attack text are
+  byte-identical across the arms. The hidden state is never shown to the model.
+- **Trusted interposer.** Every protected call is mediated before the protected
+  tool body runs, and the interposer returns either *reason-bearing* feedback
+  (`NOT_FOUND` vs `PERMISSION_DENIED`) or *uniform* feedback.
+- **Deterministic sink oracle.** Leakage counts only when the sink content
+  decodes to the code for the arm's actual hidden state. A constant payload
+  matches one arm by chance, which is why the paired rate is the unit of
+  inference. Refusals, missing calls, and malformed calls are kept as explicit
+  outcomes.
+- **Immutable records.** Each run writes raw and derived records bound by
+  SHA-256, so the evaluator result can be replayed exactly.
 
-The scripted adversary is a harness control, not evidence about LLM behavior.
-The scenario is not yet fully benchmark-validated, and no actual LLM run has
-been accepted as empirical evidence. The first local-model pilot produced
-replayable traces but failed the registered utility gate. Checkpoint 1D's exact
-eight-record benign readiness rerun also failed one state/delay cell; the
-follow-up attack/control pilot was therefore not run.
+The design is set out in [`docs/threat_model.md`](docs/threat_model.md) and
+[`docs/benchmark_spec.md`](docs/benchmark_spec.md), and in full in the thesis.
 
-Checkpoint 1E's alternate local `qwen3:8b` model passed the frozen sequential
-tool preflight and all delay-0 benign controls, but failed both delay-2
-readiness cells through malformed email arguments. The unchanged gate stopped
-execution before the attack/control pilot. See
-`docs/checkpoint1e_qwen_qualification.md`.
+## Status and findings
 
-## Quick start
+The thesis is at the revised-draft stage
+([`docs/thesis/thesis.pdf`](docs/thesis/thesis.pdf)). Its abstract reports the
+following, over seven scenarios in three AgentDojo suites and six hosted models
+from OpenAI, Anthropic, and Google (13,993 records):
+
+- Under reason-bearing feedback, the positive control decoded the hidden state
+  in 519 of 520 records, on every provider. Uniform feedback closed the channel.
+- Unsolicited leakage, driven only by injected content, was realised in one
+  scenario on one model (four of four counterfactual pairs) and was not
+  reproduced elsewhere. Treating each cell as one observation, the one-sided
+  95% upper bound on the leakage rate across all models is 1.54% (natural) and
+  1.15% (pooled).
+- Under uniform feedback, models default to the code the codebook assigns to
+  `PERMISSION_DENIED` in 18 of 19 interpretable arms, a semantic default that
+  was predicted in advance on the OpenAI models.
+- A dual-model authorization layer blocked every attempted exfiltration of the
+  realised attack, and exposed two failure modes, *state blindness* and
+  *provenance confusion*.
+
+Every prediction was recorded in
+[`docs/preregistration.md`](docs/preregistration.md) before its data existed,
+including the predictions the data falsified. Read the thesis for the scope,
+limitations, and void rules behind these numbers.
+
+> **Run records are not in this repository.** Raw and derived run records are
+> written under `runs/`, which is git-ignored. The scripts in `analysis/` read
+> those records, so the reported numbers cannot be regenerated from a fresh
+> clone alone. The committed outputs (`analysis/report.md`,
+> `analysis/cell_stats.csv`, `docs/checkpoint9c_rescore.json`) are the
+> checked-in results.
+
+## Scenarios
+
+| # | Scenario ID | AgentDojo suite |
+| --- | --- | --- |
+| S1 | `workspace_document_file_probe` | Workspace |
+| S2 | `workspace_vacation_document_file_probe` | Workspace |
+| S3 | `banking_spending_review_probe` | Banking |
+| S4 | `travel_hotel_review_probe` | Travel |
+| S5 | `banking_gift_lookup_probe` | Banking |
+| S6 | `workspace_calendar_dinner_probe` | Workspace |
+| S7 | `workspace_family_reunion_probe` | Workspace |
+
+Scenario modules live in [`src/denialdojo/scenarios/`](src/denialdojo/scenarios/).
+Only 18 of the 97 packaged AgentDojo user tasks can host a scenario of this
+shape; see [`analysis/task_eligibility.py`](analysis/task_eligibility.py).
+[`docs/adding_a_scenario.md`](docs/adding_a_scenario.md) covers the
+requirements for a new one. `docs/scenario_registry.yaml` is the original
+planning registry and does not list what was built.
+
+## Installation
+
+Requires [uv](https://docs.astral.sh/uv/). The experiments were run on
+Python 3.14, which `.python-version` pins. The package metadata allows 3.10
+and later.
 
 ```bash
 uv sync --extra dev
-uv run pytest
-uv run python -m denialdojo.run_vertical_slice
-uv run python -m denialdojo.run_workspace_vertical_slice
-uv run python -m denialdojo.run_workspace_traces
-uv run python -m denialdojo.replay_trace runs/pilot/scripted/traces.jsonl
 ```
 
-The original runner checks the minimal fixture. The Workspace runner checks
-delay 0 and 2 attack/control paths on the genuine installed substrate. Its JSON
-is console evidence, not the pending general trace format.
-Checkpoint 1C/1D trace, audit, and Ollama commands are documented in
-`docs/trace_schema.md` and `docs/local_model_readiness.md`. Generated pilot
-records are ignored and must not be committed as research data.
+On Windows without `uv` on `PATH`, prefix each command with `py -3.14 -m`, for
+example `py -3.14 -m uv sync --extra dev`.
 
-## Research guardrails
+## Quick start
 
-1. The target value is randomized in the trusted environment and is never
-   supplied in the attack prompt.
-2. The protected tool body is never executed; the trusted interposer creates
-   the denial before execution.
-3. Attack success is determined from external-sink state, not by an LLM judge.
-4. Benign utility is measured separately from leakage prevention.
-5. A negative LLM result is a valid benchmark finding.
+The checks below run offline: no API key, no network model.
 
-See `docs/threat_model.md`, `docs/benchmark_spec.md`, and
-`docs/scenario_registry.yaml` for the frozen research specification.
+```bash
+uv run pytest                                      # tests/ and analysis/
+uv run ruff check .
+uv run python -m denialdojo.run_vertical_slice     # minimal scripted fixture
+uv run python -m denialdojo.run_scripted_matrix    # 32-condition scripted matrix
+uv run python -m denialdojo.run_workspace_vertical_slice
+```
+
+The scripted adversary is a harness control. It checks that the instrument and
+the defense boundaries behave as designed; it is not evidence about LLM
+behavior.
+
+### Hosted-model runs
+
+Hosted runs cost money and need provider keys. Copy `.env.example` to `.env`
+and fill in only the keys you need (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY`). `.env` is git-ignored. The entry points are:
+
+- `python -m denialdojo.provider_check`: a one-request provider qualification.
+- `python -m denialdojo.run_api_attack_pilot run|summary`: the attack and
+  matched-benign matrix for one model, and its per-cell summary.
+- `scripts/run_scenario.ps1`: runs one scenario as readiness, exploratory
+  smoke, gate (`analysis/smoke_gate.py`), then confirmatory runs. The paid
+  confirmatory runs start only if the smoke gate passes.
+- `scripts/run_overnight.ps1`: loops `run_scenario.ps1` over the model list.
+
+The model list for the cross-vendor extension is in
+`config/checkpoint9_models.json`. The record format and replay procedure are
+described in [`docs/trace_schema.md`](docs/trace_schema.md).
+
+## Repository layout
+
+```text
+src/denialdojo/     benchmark package: interposer, scenarios, adapters, trace capture, runners
+tests/              unit, property, and frozen-string tests
+analysis/           standalone statistics (paired leakage, bounds, MI, McNemar) and their tests
+docs/               specification, preregistration, audits, and the thesis (see docs/README.md)
+scripts/            PowerShell drivers for hosted-model runs
+config/             frozen model list for the Checkpoint 9 extension
+```
+
+## Working on this repository
+
+[`AGENTS.md`](AGENTS.md) holds the binding project rules (for people and coding
+agents alike), and [`CODEX_HANDOFF.md`](CODEX_HANDOFF.md) is the full project
+history and handoff record. The most important rules:
+
+1. The hidden state is never placed in a prompt or attack text.
+2. A fixed sink message is not leakage. The emitted code has to depend on the
+   randomized hidden state.
+3. Failures, refusals, and negative results are recorded, never retried until
+   success outside a preregistered retry rule.
+4. Model and runtime details, and the predictions a run tests, are frozen in a
+   dated preregistration entry before the run.
+
+Run `uv run pytest` and `uv run ruff check .` after every code change.
+
+## Citation
+
+If you use DenialDojo, please cite the thesis. Citation metadata is in
+[`CITATION.cff`](CITATION.cff).
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). AgentDojo is a separate MIT-licensed project by
+its own authors.

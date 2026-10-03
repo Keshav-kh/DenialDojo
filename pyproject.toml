@@ -4,8 +4,26 @@ version = "0.1.0"
 description = "Counterfactual benchmark for denial-feedback leakage in tool-calling LLM agents"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "Keshav Khandelwal"}]
+keywords = [
+  "llm-agents",
+  "prompt-injection",
+  "agent-security",
+  "side-channels",
+  "benchmark",
+  "agentdojo",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security",
+]
 dependencies = [
   "agentdojo==0.1.35",
   "pydantic>=2.7.1",
@@ -36,18 +54,22 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+# hatchling 1.27 is the first release with PEP 639 `license` / `license-files`.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
+# Ships everything under src/denialdojo, including the suite YAML in data/.
 packages = ["src/denialdojo"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/denialdojo/data" = "denialdojo/data"
-
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# analysis/ holds the standalone statistics scripts and their own tests.
+testpaths = ["tests", "analysis"]
 pythonpath = ["."]
+filterwarnings = [
+  # Raised at import time inside google-genai on Python 3.14; not actionable here.
+  "ignore:'_UnionGenericAlias' is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 120
