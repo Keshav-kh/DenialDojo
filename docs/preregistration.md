@@ -2585,6 +2585,25 @@ OpenAI data, and where precedent leaves room, the conservative reading.
    per-cell figure remains the headline; the pooled-all-models figure is
    reported beside each per-model figure, never instead of it.
 
+## 2026-10-03 (Checkpoint 9 exploratory analysis): the cost of uniform denials
+
+Specified after all data existed, so exploratory and labelled as such wherever it
+is reported. No run was made for it. `analysis/uniform_utility.py` compares
+Checkpoint 9C-1 normalised benign utility between reason-bearing and uniform
+feedback over the 27 confirmatory benign arms (OpenAI scenarios two to seven and
+every Checkpoint 9 arm), with two-sided Fisher exact tests.
+
+| provider | reason-bearing | uniform | difference | p |
+| --- | --- | --- | --- | --- |
+| OpenAI | 465/480 | 465/480 | 0.0 points | 1.00 |
+| Anthropic | 437/440 | 437/440 | 0.0 points | 1.00 |
+| Google | 140/160 | 133/160 | -4.4 points | 0.34 |
+| all | 1042/1080 | 1035/1080 | -0.6 points | 0.50 |
+
+On these tasks uniform denials show no detectable cost to benign utility. The
+claim is limited to tasks in which the legitimate caller does not need the
+denial reason; the cost to a caller who does need it is not measured.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
