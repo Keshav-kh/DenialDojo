@@ -155,9 +155,7 @@ config/             frozen model list for the Checkpoint 9 extension
 
 ## Working on this repository
 
-[`AGENTS.md`](AGENTS.md) holds the binding project rules (for people and coding
-agents alike), and [`CODEX_HANDOFF.md`](CODEX_HANDOFF.md) is the full project
-history and handoff record. The most important rules:
+Four rules bind every change to the benchmark and every run:
 
 1. The hidden state is never placed in a prompt or attack text.
 2. A fixed sink message is not leakage. The emitted code has to depend on the
