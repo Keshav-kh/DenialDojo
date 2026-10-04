@@ -146,6 +146,8 @@ described in [`docs/trace_schema.md`](docs/trace_schema.md).
 
 ```text
 src/denialdojo/     benchmark package: interposer, scenarios, adapters, trace capture, runners
+  legacy/           local Ollama path from the first checkpoints; kept for reproducibility,
+                    not used for any reported result (see its README.md)
 tests/              unit, property, and frozen-string tests
 analysis/           standalone statistics (paired leakage, bounds, MI, McNemar) and their tests
 docs/               specification, preregistration, audits, and the thesis (see docs/README.md)

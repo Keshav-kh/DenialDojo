@@ -27,6 +27,10 @@ was run.
 
 ## Audits and early checkpoints
 
+The local Ollama checkpoints (1C to 1E) ran code that now lives in
+[`src/denialdojo/legacy/`](../src/denialdojo/legacy/README.md). It is kept so
+those records remain reproducible and is not used for any reported result.
+
 | File | Contents |
 | --- | --- |
 | [`test_audit_2026_09_09.md`](test_audit_2026_09_09.md) | Audit of the test suite for vacuous guards |

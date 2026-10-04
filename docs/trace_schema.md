@@ -68,15 +68,17 @@ py -3.14 -m uv run python -m denialdojo.replay_trace `
   runs/pilot/<run>/raw/<run-id>.json
 ```
 
-The benign readiness runner requires the frozen Checkpoint 1C preflight. The
+The local Ollama runners now live in the `denialdojo.legacy` subpackage; they
+are kept for reproducibility and are not used for any reported result. The
+benign readiness runner requires the frozen Checkpoint 1C preflight. The
 follow-up pilot additionally requires a passing immutable readiness summary;
 it refuses the failed Checkpoint 1D summary:
 
 ```powershell
-py -3.14 -m uv run python -m denialdojo.run_ollama_readiness `
+py -3.14 -m uv run python -m denialdojo.legacy.run_ollama_readiness `
   --preflight-summary runs/pilot/checkpoint1c-preflight/preflight_summary.json
 
-py -3.14 -m uv run python -m denialdojo.run_ollama_pilot `
+py -3.14 -m uv run python -m denialdojo.legacy.run_ollama_pilot `
   --preflight-summary runs/pilot/checkpoint1c-preflight/preflight_summary.json `
   --readiness-summary runs/pilot/<passing-readiness-run>/summary.json
 ```

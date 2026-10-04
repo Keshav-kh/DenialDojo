@@ -8,7 +8,7 @@ claim.
 Run the audit without changing the source file:
 
 ```powershell
-py -3.14 -m uv run python -m denialdojo.checkpoint1c_audit `
+py -3.14 -m uv run python -m denialdojo.legacy.checkpoint1c_audit `
   runs/pilot/checkpoint1c-workspace/traces.jsonl
 ```
 
