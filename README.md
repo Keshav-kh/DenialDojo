@@ -37,8 +37,8 @@ The design is set out in [`docs/threat_model.md`](docs/threat_model.md) and
 
 ## Status and findings
 
-The thesis is at the revised-draft stage
-([`docs/thesis/thesis.pdf`](docs/thesis/thesis.pdf)). Its abstract reports the
+The thesis is at its second draft
+([`docs/thesis/draft2/thesis.pdf`](docs/thesis/draft2/thesis.pdf)). Its abstract reports the
 following, over seven scenarios in three AgentDojo suites and six hosted models
 from OpenAI, Anthropic, and Google (15,313 records):
 
