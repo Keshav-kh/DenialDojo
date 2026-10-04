@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from denialdojo.models import HiddenState
-from denialdojo.ollama_runtime import repository_state
+from denialdojo.provenance import repository_state
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus, build_workspace_trace, write_trace_jsonl
 from denialdojo.workspace_experiment import run_workspace_attack, run_workspace_benign_control
 

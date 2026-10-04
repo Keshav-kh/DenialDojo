@@ -8,21 +8,17 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
-from denialdojo.local_model_scope import (
+from denialdojo.legacy.local_model_scope import (
     AUTHORIZED_LOCAL_MODELS,
     checkpoint_for_model,
     pilot_scope_for_model,
     readiness_scope_for_model,
 )
+from denialdojo.legacy.ollama_runtime import inspect_ollama_model, runtime_metadata_from_inspection
+from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
 from denialdojo.local_pilot import PreflightArtifact, pilot_conditions
 from denialdojo.ollama_adapter import OllamaConfig
-from denialdojo.ollama_runtime import (
-    collect_hardware_metadata,
-    inspect_ollama_model,
-    repository_state,
-    runtime_metadata_from_inspection,
-)
+from denialdojo.provenance import collect_hardware_metadata, repository_state
 from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore
 

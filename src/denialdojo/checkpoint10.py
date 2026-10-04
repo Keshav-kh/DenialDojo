@@ -34,7 +34,7 @@ from denialdojo.api_adapter import ApiAdapter, ApiConfig, Provider, Transport
 from denialdojo.checkpoint9c import provider_filtered
 from denialdojo.local_artifacts import execute_immutable_matrix
 from denialdojo.models import UNIFORM_LABELS, DenialReason, FeedbackMode, HiddenState
-from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
+from denialdojo.provenance import collect_hardware_metadata, repository_state
 from denialdojo.run_api_attack_pilot import (
     AttackPilotCondition,
     _assign_run_ordinals,

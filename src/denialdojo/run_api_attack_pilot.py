@@ -44,7 +44,7 @@ from denialdojo.local_artifacts import (
     terminal_counts,
 )
 from denialdojo.models import DefenseMode, DenialReason, FeedbackMode, HiddenState, validate_uniform_label
-from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
+from denialdojo.provenance import collect_hardware_metadata, repository_state
 from denialdojo.run_api_pilot import READINESS_SUMMARY_SCHEMA_VERSION, _model_slug, _runtime_metadata
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, Scenario, get_scenario, scenario_ids
 from denialdojo.scenarios.base import present_permission_denied_first

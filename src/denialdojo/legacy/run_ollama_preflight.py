@@ -5,14 +5,10 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from denialdojo.legacy.ollama_runtime import inspect_ollama_model, runtime_metadata_from_inspection
 from denialdojo.local_pilot import PreflightArtifact, run_preflight_once, summarize_preflight
 from denialdojo.ollama_adapter import OllamaConfig
-from denialdojo.ollama_runtime import (
-    collect_hardware_metadata,
-    inspect_ollama_model,
-    repository_state,
-    runtime_metadata_from_inspection,
-)
+from denialdojo.provenance import collect_hardware_metadata, repository_state
 from denialdojo.trace import PilotManifest, write_manifest
 
 

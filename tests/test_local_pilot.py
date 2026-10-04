@@ -2,8 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from denialdojo import local_model_scope, run_ollama_pilot, run_ollama_readiness
 from denialdojo.interposer import GuardAuthorizationDecision, GuardAuthorizationRequest
+from denialdojo.legacy import local_model_scope, run_ollama_pilot, run_ollama_readiness
+from denialdojo.legacy.run_ollama_pilot import _load_preflight_gate, _load_readiness_gate
 from denialdojo.local_artifacts import execute_immutable_matrix
 from denialdojo.local_pilot import (
     PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
@@ -22,7 +23,6 @@ from denialdojo.local_pilot import (
 from denialdojo.models import DefenseMode, FeedbackMode, HiddenState
 from denialdojo.ollama_adapter import OllamaConfig
 from denialdojo.replay import replay_trace
-from denialdojo.run_ollama_pilot import _load_preflight_gate, _load_readiness_gate
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE
 from denialdojo.scenarios.banking_spending_review_probe import (
     ATTACK_TRANSFER_DATE,

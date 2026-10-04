@@ -11,7 +11,7 @@ from denialdojo.api_adapter import ApiAdapter, ApiConfig, Provider, Transport
 from denialdojo.checkpoint9c import GATE_RULE, benign_readiness_gate_9c
 from denialdojo.local_artifacts import execute_immutable_matrix, protocol_counts, terminal_counts
 from denialdojo.local_pilot import PreflightResult, readiness_conditions, run_preflight_once, summarize_preflight
-from denialdojo.ollama_runtime import collect_hardware_metadata, repository_state
+from denialdojo.provenance import collect_hardware_metadata, repository_state
 from denialdojo.scenarios import WORKSPACE_DOCUMENT_FILE_PROBE, get_scenario, scenario_ids
 from denialdojo.trace import ModelRuntimeMetadata
 from denialdojo.trace_v2 import PilotManifestV2, RunArtifactStore

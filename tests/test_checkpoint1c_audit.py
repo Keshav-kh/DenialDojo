@@ -1,4 +1,4 @@
-from denialdojo.checkpoint1c_audit import audit_record, unicode_character_mismatches
+from denialdojo.legacy.checkpoint1c_audit import audit_record, unicode_character_mismatches
 from denialdojo.models import HiddenState
 from denialdojo.trace import ModelRuntimeMetadata, TerminalStatus, build_workspace_trace
 from denialdojo.workspace_experiment import run_workspace_benign_control

@@ -1,4 +1,4 @@
-from denialdojo.ollama_runtime import working_tree_digest
+from denialdojo.provenance import working_tree_digest
 
 
 def test_working_tree_digest_covers_untracked_file_contents(tmp_path) -> None:

@@ -4,9 +4,9 @@ import pytest
 from agentdojo.functions_runtime import FunctionsRuntime, make_function
 from agentdojo.types import ChatUserMessage, text_content_block_from_string
 
+from denialdojo.legacy.ollama_runtime import OllamaInspection, runtime_metadata_from_inspection
 from denialdojo.models import HiddenState
 from denialdojo.ollama_adapter import OllamaAdapter, OllamaConfig
-from denialdojo.ollama_runtime import OllamaInspection, runtime_metadata_from_inspection
 from denialdojo.trace import TerminalStatus
 from denialdojo.workspace import ATTACK_INJECTION, DenialWorkspaceRuntime, build_workspace_environment
 
