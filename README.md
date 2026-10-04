@@ -40,7 +40,7 @@ The design is set out in [`docs/threat_model.md`](docs/threat_model.md) and
 The thesis is at the revised-draft stage
 ([`docs/thesis/thesis.pdf`](docs/thesis/thesis.pdf)). Its abstract reports the
 following, over seven scenarios in three AgentDojo suites and six hosted models
-from OpenAI, Anthropic, and Google (13,993 records):
+from OpenAI, Anthropic, and Google (15,313 records):
 
 - Under reason-bearing feedback, the positive control decoded the hidden state
   in 519 of 520 records, on every provider. Uniform feedback closed the channel.
@@ -52,6 +52,11 @@ from OpenAI, Anthropic, and Google (13,993 records):
 - Under uniform feedback, models default to the code the codebook assigns to
   `PERMISSION_DENIED` in 18 of 19 interpretable arms, a semantic default that
   was predicted in advance on the OpenAI models.
+- Uniform denials are secure but not neutral. In a preregistered experiment on
+  all six models (Checkpoint 10), the meaning of the uniform label decided the
+  reason the agent reported: `RESOURCE_UNAVAILABLE` reversed the default to the
+  `NOT_FOUND` code on six of six models (235/238 records), `NOT_PERMITTED` did
+  not move it, and reordering the codebook changed nothing.
 - A dual-model authorization layer blocked every attempted exfiltration of the
   realised attack, and exposed two failure modes, *state blindness* and
   *provenance confusion*.

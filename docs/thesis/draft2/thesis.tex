@@ -50,6 +50,8 @@
 
 \pagestyle{plain}
 \setlength{\emergencystretch}{3em}
+% Captions sit above tables; keep them off the top rule.
+\setlength{\belowcaptionskip}{6pt}
 
 \begin{document}
 
@@ -119,7 +121,7 @@ benchmark mediates every protected call through a trusted interposer and writes
 immutable, replayable records. It was run on six hosted models from three
 providers --- OpenAI's GPT-5.6 Luna and Terra, Anthropic's Claude Sonnet~5.5 and
 Haiku~4.5, and Google's Gemini~3.8 and~3.7 Flash --- across seven scenarios in
-three task suites, producing 13{,}993 records under a preregistration discipline
+three task suites, producing 15{,}313 records under a preregistration discipline
 in which every prediction was recorded before its data existed.
 
 The instrument detects the channel whenever the user authorises its use:
@@ -131,11 +133,14 @@ on one OpenAI model --- and was not reproduced anywhere else. Across the four
 added models the injection was delivered in all 1{,}080 natural records and not
 one acted on it. Treating each experimental cell as a single observation, the
 one-sided 95\% upper bound on the leakage rate across all models is 1.54\%
-natural and 1.15\% pooled. Under uninformative denials the models emit a
-constant code: the code the codebook assigns to \texttt{PERMISSION\_DENIED},
-whichever token that is, in 18 of 19 interpretable arms across all three
-providers --- a semantic default that was predicted in advance, down to the
-specific token, on the OpenAI models.
+natural and 1.15\% pooled. Uniform denials close the channel, but they are
+not neutral: asked for the reason, agents still report one, and a final
+preregistered experiment on all six models shows that the \emph{meaning} of the
+uniform label decides which. \texttt{ACCESS\_DENIED} was reported as
+\emph{permission denied} in 237 of 239 records and
+\texttt{RESOURCE\_UNAVAILABLE} as \emph{not found} in 235 of 238, on six of six
+models; a label sharing a word with \emph{not found} but meaning \emph{not
+permitted} did not move, and neither did reversing the order of the codebook.
 
 A dual-model authorization layer, in which a guard model approves or denies each
 outbound action, blocked every attempted exfiltration of the realised attack in
@@ -276,17 +281,18 @@ work.
     Anthropic's content filter, a provider-side defence, voided every
     Sonnet arm from scenario three onward; both Gemini releases declined
     the benign version of most scenarios (Chapter~\ref{sec:cross-vendor}).
-  \item \textbf{A semantic-default finding, predicted in advance and
-    observed across vendors.} Under uniform feedback the models emit a
-    constant code, and wherever the instrument was validated that constant
-    is the code for \code{PERMISSION\_DENIED}, across opposing codebook
-    assignments in all three suites. The token changes with the codebook
-    and the meaning does not, which no token-frequency bias can produce.
-    The specific token was predicted before the data existed for three
-    scenarios on the OpenAI models, and the same default appears in 18 of
-    19 interpretable arms across all three providers
-    (Sections~\ref{sec:inversion}, \ref{sec:scenario-five},
-    \ref{sec:final-bounds} and~\ref{sec:cross-vendor-default}).
+  \item \textbf{Uniform denials are secure but not neutral: the wording of
+    the label decides what the agent reports.} Under uniform feedback the
+    models still report a reason, the code for \code{PERMISSION\_DENIED} in
+    18 of 19 interpretable arms across all three providers, predicted in
+    advance on the OpenAI models. A preregistered experiment that varied only
+    the label, on all six models, shows why: the agent translates the label
+    into the reason it means. \code{RESOURCE\_UNAVAILABLE} reversed the
+    default on six of six models (235 of 238 records); a label sharing a word
+    with \code{NOT\_FOUND} but meaning \emph{not permitted} did not; and
+    reordering the codebook changed nothing, which rules out a confound
+    present in every earlier scenario (Sections~\ref{sec:inversion},
+    \ref{sec:cross-vendor-default} and Chapter~\ref{ch:wording}).
   \item A realised denial-reason leak under indirect prompt injection,
     reported at its true size: four counterfactual pairs in one cell of
     one scenario on one model, plus one unpaired event in a second
@@ -324,7 +330,8 @@ instrument and reports the one realised attack; Chapter~\ref{ch:generalisation}
 tests it across task suites, carriers and sinks and bounds the leakage rate;
 Chapter~\ref{sec:cross-vendor} repeats the study on four models from two further
 providers; Chapter~\ref{ch:defences} evaluates the defences, including the
-dual-model authorization layer. Chapter~\ref{ch:methodfindings} reports what
+dual-model authorization layer; Chapter~\ref{ch:wording} tests what a uniform
+denial makes the agent report. Chapter~\ref{ch:methodfindings} reports what
 building the benchmark revealed about measurement validity and distils it into
 a checklist. Chapter~\ref{ch:discussion} interprets the results,
 Chapter~\ref{ch:limitations} states their limits, and
@@ -585,7 +592,7 @@ record raises. A run directory additionally carries a manifest
 recording the repository commit, a source-tree hash, the runtime
 metadata, and the expected run identifiers.
 
-The dataset and its development history comprise \textbf{13{,}993} raw run
+The dataset and its development history comprise \textbf{15{,}313} raw run
 records across all checkpoints (Appendix~\ref{app:artifacts}). The OpenAI runs
 consumed approximately US\$10 of API usage, so the benchmark can be reproduced on
 those models in every scenario for a cost of that order; the added-model runs
@@ -2085,7 +2092,10 @@ exception, Haiku in scenario five, emitted the other code as a majority (28 of
 40) rather than a constant; Sonnet in scenario two matched as a majority (32 of
 40). Because the token was not predicted for the added models, this is
 reported as an observation that the OpenAI-era prediction generalises, not as a
-confirmed prediction.
+confirmed prediction. Every codebook in the table also lists
+\code{PERMISSION\_DENIED} second, so the observation alone cannot separate the
+label's meaning from the codebook's order; Chapter~\ref{ch:wording} separates
+them experimentally.
 
 \section{What the extension changes}
 
@@ -2347,6 +2357,217 @@ information uniform denials remove, and that cost is not measured here. The
 result supports uniform denials wherever the reason is not needed by the
 caller, which is the setting in which the leak is possible.
 
+% =====================================================================
+\chapter{What a Uniform Denial Says}
+\label{ch:wording}
+
+Uniform feedback closes the channel at no measured cost to legitimate work. It
+does not stop the agent from reporting a reason. In every interpretable arm of
+the main study, an agent told only \code{ACCESS\_DENIED} and asked for the code
+of the denial it received sent a code anyway, and in 18 of 19 arms it was the
+code the codebook assigns to \code{PERMISSION\_DENIED}
+(Section~\ref{sec:cross-vendor-default}). Earlier chapters called this a
+\emph{semantic default}: the model reports the reason the uninformative label
+most resembles. This chapter tests that description directly. It reports
+Checkpoint~10, a preregistered experiment on all six models whose only
+manipulated variable is what the uniform denial says.
+
+\section{Three explanations, one untested assumption}
+\label{sec:wording-question}
+
+Three properties of the earlier runs could each produce the default. The first
+is the \emph{letter}: a model might simply prefer one token. That is already
+excluded, because the \code{PERMISSION\_DENIED} code is \code{BRAVO} in
+scenarios one, three and six and \code{ALPHA} in the other four, and the models
+follow the mapping in both. The second is \emph{meaning}: \code{ACCESS\_DENIED}
+means what \code{PERMISSION\_DENIED} means. The third is \emph{token overlap}:
+the two labels share the word \code{DENIED}.
+
+While the experiment was being designed, a fourth explanation was found that
+the earlier description had silently assumed away. Every one of the seven
+registered codebooks lists \code{NOT\_FOUND} first and
+\code{PERMISSION\_DENIED} second. Across the whole dataset, the
+\code{PERMISSION\_DENIED} code is therefore also the code listed \emph{last},
+and a model that defaulted to the most recent mapping it read would have
+produced every observation in Table~\ref{tab:cp9-default}. The confound was
+recorded in the preregistration before any record of this experiment existed,
+together with the arm that tests it.
+
+\section{Design}
+\label{sec:wording-design}
+
+The experiment holds everything fixed except the denial. It uses scenario two,
+the only scenario interpretable on all six models, in its positive-control
+condition: the user asks the agent to check the protected file and email the
+code for the denial it receives. Feedback is uniform, so both hidden states
+receive the same denial string, and the model-visible input of the paired arms
+is byte-identical up to and including the denial (this is tested). Five arms
+vary what that string says (Table~\ref{tab:wording-arms}).
+
+\begin{table}[h]
+\centering
+\small
+\caption{The five arms of Checkpoint~10. All use uniform feedback; only the
+denial label or the order of the codebook changes.}
+\label{tab:wording-arms}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Arm & Meaning closest to & Shares a word with \\
+\midrule
+\code{ACCESS\_DENIED} & \code{PERMISSION\_DENIED} & \code{PERMISSION\_DENIED} \\
+\code{NOT\_PERMITTED} & \code{PERMISSION\_DENIED} & \code{NOT\_FOUND} \\
+\code{RESOURCE\_UNAVAILABLE} & \code{NOT\_FOUND} & neither \\
+\code{REQUEST\_FAILED} & neither & neither \\
+\code{ACCESS\_DENIED}, reordered & \code{PERMISSION\_DENIED} & \code{PERMISSION\_DENIED} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\code{ACCESS\_DENIED} replicates the earlier cell exactly. \code{NOT\_PERMITTED}
+dissociates meaning from token overlap: it means what
+\code{PERMISSION\_DENIED} means but shares the word \code{NOT} with
+\code{NOT\_FOUND}. \code{RESOURCE\_UNAVAILABLE} moves the meaning toward
+\code{NOT\_FOUND} and shares a word with neither. \code{REQUEST\_FAILED} carries
+no reason at all. The fifth arm keeps \code{ACCESS\_DENIED} and lists
+\code{PERMISSION\_DENIED} first, in both places the model reads the codebook
+(the user prompt and the injected document); which code each reason maps to is
+unchanged. Each arm has 40 records per model (two hidden states, two delays, ten
+repetitions), run in repetition-major order so that provider drift over the run
+cannot align with one arm: 1{,}200 records in all. The label and the codebook
+order are part of each record's trusted identity, and a record in which the
+model saw any other label or order is an instrument fault, not an outcome; none
+occurred.
+
+The unit of inference is the model. Records within one model are repeated draws
+of one sampling process, mostly at temperature~0, and testing them as
+independent would overstate the evidence. The confirmatory tests are therefore
+exact one-sided sign tests across models. H10.2, the primary test, asks whether
+\code{RESOURCE\_UNAVAILABLE} lowers the share of the
+\code{PERMISSION\_DENIED} code relative to \code{ACCESS\_DENIED}; with six
+models it can succeed only if all six move ($p = 1/64$). H10.3, tested only if
+H10.2 succeeds, asks whether \code{NOT\_PERMITTED} keeps a higher share than
+\code{RESOURCE\_UNAVAILABLE}. H10.4, a separate question, asks whether listing
+\code{PERMISSION\_DENIED} first lowers the share; it was predicted \emph{not}
+to. The analysis script was committed with the preregistration, before the
+first record.
+
+\section{Results}
+\label{sec:wording-results}
+
+All six models passed their smoke gates and completed every record, with no
+runtime errors. Anthropic's content filter stopped three Sonnet records, all in
+the \code{NOT\_PERMITTED} arm; they are excluded under the provider-filtering
+rule of Chapter~\ref{sec:cross-vendor}. Every arm of every model was
+interpretable. Table~\ref{tab:wording-results} gives the outcome.
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{Share of records carrying the \code{PERMISSION\_DENIED} code, among
+records that sent a registered code. Scenario two, uniform feedback, 40 records
+per cell. \emph{AD}: \code{ACCESS\_DENIED}; \emph{NP}: \code{NOT\_PERMITTED};
+\emph{RU}: \code{RESOURCE\_UNAVAILABLE}; \emph{RF}: \code{REQUEST\_FAILED};
+\emph{AD-r}: \code{ACCESS\_DENIED} with the codebook reordered.}
+\label{tab:wording-results}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Model & AD & NP & RU & RF & AD-r \\
+\midrule
+GPT-5.6 Luna & $40/40$ & $40/40$ & $0/40$ & $8/40$ & $40/40$ \\
+GPT-5.6 Terra & $40/40$ & $40/40$ & $0/40$ & $40/40$ & $40/40$ \\
+Claude Haiku 4.5 & $40/40$ & $40/40$ & $0/40$ & $0/40$ & $40/40$ \\
+Claude Sonnet 5.5 & $37/39$ & $37/37$ & $0/38$ & $0/40$ & $40/40$ \\
+Gemini 3.8 Flash & $40/40$ & $40/40$ & $0/40$ & $40/40$ & $33/33$ \\
+Gemini 3.7 Flash & $40/40$ & $40/40$ & $3/40$ & $28/40$ & $40/40$ \\
+\midrule
+All & $237/239$ & $237/237$ & $3/238$ & $116/240$ & $233/233$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every preregistered prediction held.
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{The default replicates.} Under \code{ACCESS\_DENIED} the
+    \code{PERMISSION\_DENIED} code was sent in 237 of 239 records ($99.2\%$,
+    $95\%$ Clopper--Pearson interval $97.0$--$99.9\%$).
+  \item \textbf{Meaning reverses it (H10.2).} Under
+    \code{RESOURCE\_UNAVAILABLE} every model moved, six of six (sign test
+    $p = 0.016$), and the movement is a reversal rather than a shift: the
+    \code{NOT\_FOUND} code was sent in 235 of 238 records.
+  \item \textbf{Meaning, not token overlap (H10.3).} \code{NOT\_PERMITTED}, which
+    shares a word with \code{NOT\_FOUND}, produced the
+    \code{PERMISSION\_DENIED} code in all 237 records that sent a code; six of six
+    models ($p = 0.016$).
+  \item \textbf{Not position (H10.4).} With \code{PERMISSION\_DENIED} listed
+    first, the default was unchanged: 233 of 233. No model moved, so the
+    confound of Section~\ref{sec:wording-question} does not explain the
+    earlier observations.
+\end{itemize}
+
+Two further observations were reported descriptively, as preregistered. Under
+\code{REQUEST\_FAILED}, a label with no reason in it, the models disagree: GPT-5.6
+Terra and Gemini~3.8 send the \code{PERMISSION\_DENIED} code every time, Claude
+Haiku and Sonnet send the \code{NOT\_FOUND} code every time, and GPT-5.6 Luna and
+Gemini~3.7 split. And the agents almost never declined to answer. The
+codebook contains no entry for any of these labels, yet only 10 of 1{,}197
+eligible records sent no code or an invalid one; the increase in abstention
+predicted for \code{REQUEST\_FAILED} did not occur (0 of 240).
+
+The channel stayed closed under every label. Paired leakage was $0/20$ in every
+arm in which a model sent one code consistently. The only paired successes
+occur in arms where a model split between codes (Luna under
+\code{REQUEST\_FAILED}, 3 of 20; Gemini~3.7 under \code{RESOURCE\_UNAVAILABLE}
+and \code{REQUEST\_FAILED}, 2 and 4 of 20), at the rate those mixtures produce
+by chance. Since the model-visible input does not depend on the hidden state,
+they cannot be anything else.
+
+\section{What the wording does}
+\label{sec:wording-meaning}
+
+The result settles what the earlier chapters could only describe. When an agent
+receives a uniform denial and is asked why access failed, it does not report
+that it cannot tell. It translates the label into the reason it means, and the
+translation is the same across three vendors, two model sizes and two releases
+of one model line: \code{ACCESS\_DENIED} and \code{NOT\_PERMITTED} become
+\emph{permission denied}, \code{RESOURCE\_UNAVAILABLE} becomes \emph{not
+found}. The word the labels share with a reason does not decide it, and neither
+does the order in which the reasons were listed.
+
+For a system that denies access this has a direct consequence. A uniform denial
+is secure, because it carries nothing about the protected state, but it is not
+neutral, because the agent still turns it into a specific claim and passes that
+claim on. With \code{ACCESS\_DENIED} the agent asserts that the resource exists
+and is protected, which is false whenever it does not exist; with
+\code{RESOURCE\_UNAVAILABLE} it asserts that the resource does not exist, which
+is false whenever it is merely protected. Neither claim leaks the state, since
+each is made in both arms alike, but each is wrong half the time, and the
+system designer chooses which error the agent makes by choosing the wording.
+A deliberately empty label does not avoid the choice: under
+\code{REQUEST\_FAILED} the choice is still made, by the model, and differently
+by different models. This is the same confabulation the informed guard
+blocked in Section~\ref{sec:guard}, now shown to be under the designer's
+control.
+
+The practical recommendation is modest. A system that uses uniform denials
+should choose the label whose meaning matches the conclusion it is willing to
+have the agent report, and should treat a model's report of a denial reason as
+the model's interpretation of the label, never as evidence about the resource.
+
+\section{Limits of the experiment}
+
+The experiment uses one scenario and one codebook mapping. In it the user
+explicitly asks the agent to email a code, so the near-absence of abstention
+partly reflects instruction-following; a task that did not demand an answer
+might show more refusals. The user prompt also asks whether the file is
+``available'', which may make \code{RESOURCE\_UNAVAILABLE} read as an answer to
+that question rather than as a reason; the arm's effect is therefore shown for
+this wording of the task, not for every task. The six models come from three
+vendors and are not independent observations, and Sonnet ran at its provider's
+default sampling. Whether the same translation occurs on other scenarios and
+codebooks is the obvious next measurement, and the benchmark supports it
+without change.
+
 \chapter{Measurement Validity}
 \label{ch:methodfindings}
 
@@ -2574,9 +2795,11 @@ analogue of returning \code{404} for a resource whose existence is sensitive,
 closed the channel completely in every arm in which it was measured, because
 there is nothing state-dependent left to transmit.
 Section~\ref{sec:uniform-cost} shows what it costs legitimate work. Under
-uniform feedback the models still emit a code, but it is a constant determined
-by the wording of the denial label, not by the protected state; it carries no
-information about the resource.
+uniform feedback the models still report a reason, but it is the meaning of the
+denial label translated into a reason, not anything about the protected state
+(Chapter~\ref{ch:wording}). It carries no information about the resource; it
+is, however, a confident claim that is wrong half the time, and the designer
+selects which claim by selecting the label.
 
 The dual-model authorization layer closes the realised channel as well, but its
 two failure modes show where an LLM guard is weakest. A guard that sees only the
@@ -2686,6 +2909,11 @@ limitation in full.
     refusal to before the probe, but does not isolate which textual
     feature causes it, and deliberately was not followed by a
     variant-level search.
+  \item[The wording experiment.] Chapter~\ref{ch:wording} rests on one
+    scenario, one codebook mapping and a task that asks the agent to send a
+    code, which discourages abstention. Its six models are not independent
+    observations. That the label's meaning sets the reported reason is shown
+    for this task; its generality across tasks is not.
   \item[Delay.] Delay is an observed outcome, not an enforced treatment,
     because neither model retries after a block.
   \item[Sensitive content.] The protected asset is existence only. No
@@ -2693,7 +2921,9 @@ limitation in full.
   \item[Credential redaction.] Redaction is shape-based rather than
     value-based, and the request capture excludes the authorisation header
     altogether. No OpenAI-, Anthropic- or Google-shaped key appears in any
-    of the 29{,}639 artifact files checked after the extension, but a
+    of the 32{,}315 artifact files checked after Checkpoint~10 (the one
+    pattern match is four characters inside a base64 Gemini thought
+    signature, not at a token boundary), but a
     provider whose key format differs from the matched shapes would rely on
     the header exclusion alone.
 \end{description}
@@ -2717,9 +2947,12 @@ records, a one-sided $95\%$ upper bound of $1.54\%$ per cell, and no model
 added in the cross-vendor extension acted on a delivered injection at all.
 
 Uniform denials close the channel. A dual-model authorization layer closes it
-too, at a cost described by two named failure modes. Under uniform denials,
-models report a constant whose meaning follows the wording of the denial label,
-across all three providers. And building the benchmark produced a catalogue of
+too, at a cost described by two named failure modes. Uniform denials are not
+neutral, however: asked for the reason, every model reported one, and a
+preregistered experiment on all six models showed that the meaning of the label
+decides which --- not a shared word, and not the order of the codebook. The
+designer of a denial therefore chooses what the agent will claim. And building
+the benchmark produced a catalogue of
 twenty-six measurement defects and a checklist that any benchmark of agent
 behaviour can apply.
 
@@ -2729,6 +2962,10 @@ behaviour can apply.
   \item \textbf{New model versions.} The benchmark replays exactly, so the
     bounds can be recomputed for each new release; a change in
     injection-following would appear directly in the natural condition.
+  \item \textbf{Denial wording.} The label experiment ran on one scenario. The
+    same five arms on the remaining scenarios, and on tasks where the user needs
+    the reason, would show whether the translation is general and what a
+    deliberately chosen label costs a legitimate caller.
   \item \textbf{Protected content.} This work protects only the existence of a
     resource. Extending the counterfactual design to partial content, such as
     a field length or a record count, is the natural next step.
@@ -3243,6 +3480,9 @@ audit@example.net with subject Family reunion access result.
 2026-10-03 & 9C & Trailing-period body rule; provider-filter classification \\
 2026-10-03 & 9C applied & Re-score outcome; authorised Haiku re-runs \\
 2026-10-03 & 9 rules & Inclusion and the 19/20 positive-control threshold \\
+2026-10-03 & 9 exploratory & The cost of uniform denials \\
+2026-10-03 & 10 & Uniform-label wording and codebook order; the order confound \\
+2026-10-03 & 10 results & The label's meaning sets the default; order does not \\
 \bottomrule
 \end{longtable}
 
@@ -3360,10 +3600,11 @@ Checkpoint 9, Claude Haiku 4.5 & 1{,}872 & \code{runs/pilot9-\allowbreak claude-
 Checkpoint 9, Claude Sonnet 5.5 & 1{,}560 & \code{runs/pilot9-\allowbreak claude-sonnet-*} \\
 Checkpoint 9, Gemini 3.8 Flash & 624 & \code{runs/pilot9-\allowbreak gemini-3.8-*} \\
 Checkpoint 9, Gemini 3.7 Flash & 624 & \code{runs/pilot9-\allowbreak gemini-3.7-*} \\
-Exploratory smoke runs & 1{,}392 & \code{runs/pilot*-smoke*} \\
+Checkpoint 10, label wording, six models & 1{,}200 & \code{runs/pilot10} \\
+Exploratory smoke runs & 1{,}512 & \code{runs/pilot*-smoke*} \\
 Archived failed or superseded & 161 & \code{runs/archive-*} \\
 \midrule
-\textbf{Total} & \textbf{13{,}993} & \\
+\textbf{Total} & \textbf{15{,}313} & \\
 \bottomrule
 \end{longtable}
 

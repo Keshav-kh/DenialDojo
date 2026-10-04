@@ -2811,8 +2811,8 @@ PD-code share, PD / (PD + NF), over eligible records:
   in 6 of 6 models, one-sided sign test p = 0.0156. It is not a reduction but a
   reversal: pooled PD-code share 3/238; the NF code was emitted in 235 of 238 records.
 - **H10.3 rejected H0 (fixed sequence).** `NOT_PERMITTED` is above
-  `RESOURCE_UNAVAILABLE` in 6 of 6 models, p = 0.0156; pooled PD-code share 234/234
-  (three filtered records excluded). The token NOT shared with NOT_FOUND did not pull it.
+  `RESOURCE_UNAVAILABLE` in 6 of 6 models, p = 0.0156; pooled PD-code share 237/237
+  (Sonnet's three filtered records excluded). The token NOT shared with NOT_FOUND did not pull it.
 - **H10.4 not rejected, as predicted.** Listing PERMISSION_DENIED first lowered the
   PD-code share in 0 of 1 untied models (5 tied); the reordered arm's pooled
   PD-code share is 233/233. Position does not explain the default. The confound
