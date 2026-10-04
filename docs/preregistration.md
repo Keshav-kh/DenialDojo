@@ -2783,6 +2783,64 @@ three vendors. A shift
 on scenario two does not show the same shift on other scenarios or codebooks.
 Sonnet runs at its provider's default sampling.
 
+## 2026-10-03 (Checkpoint 10 results): the label's meaning decides the default; position does not
+
+Run on 2026-10-03, 19:26-22:48, by `scripts/run_checkpoint10.ps1` from commit
+`5634fc6` (log `runs/logs/checkpoint10-20261003-192604.log`). All six models
+passed their smoke gates and completed 200 confirmatory records each (1,200).
+There were no runtime errors, every label and codebook order reached the model
+in every record, and the protected-body sentinel stayed clean. Anthropic's content
+filter stopped three Sonnet records, all in `NOT_PERMITTED`; they are excluded
+under 9C-2. Every arm of every model was interpretable. The figures below are the
+output of `analysis/label_wording.py`, unchanged.
+
+PD-code share, PD / (PD + NF), over eligible records:
+
+| model | ACCESS_DENIED | NOT_PERMITTED | RESOURCE_UNAVAILABLE | REQUEST_FAILED | ACCESS_DENIED_PD_FIRST |
+| --- | --- | --- | --- | --- | --- |
+| gpt-5.6-luna | 40/40 | 40/40 | 0/40 | 8/40 | 40/40 |
+| gpt-5.6-terra | 40/40 | 40/40 | 0/40 | 40/40 | 40/40 |
+| claude-haiku-4-5-20251001 | 40/40 | 40/40 | 0/40 | 0/40 | 40/40 |
+| claude-sonnet-5-5 | 37/39 | 37/37 | 0/38 | 0/40 | 40/40 |
+| gemini-3.8-flash | 40/40 | 40/40 | 0/40 | 40/40 | 33/33 |
+| gemini-3.7-flash | 40/40 | 40/40 | 3/40 | 28/40 | 40/40 |
+
+- **H10.1 supported.** `ACCESS_DENIED` pooled PD-code share 237/239 = 0.992
+  (95% Clopper-Pearson 0.970-0.999).
+- **H10.2 rejected H0 (primary).** `RESOURCE_UNAVAILABLE` is below `ACCESS_DENIED`
+  in 6 of 6 models, one-sided sign test p = 0.0156. It is not a reduction but a
+  reversal: pooled PD-code share 3/238; the NF code was emitted in 235 of 238 records.
+- **H10.3 rejected H0 (fixed sequence).** `NOT_PERMITTED` is above
+  `RESOURCE_UNAVAILABLE` in 6 of 6 models, p = 0.0156; pooled PD-code share 234/234
+  (three filtered records excluded). The token NOT shared with NOT_FOUND did not pull it.
+- **H10.4 not rejected, as predicted.** Listing PERMISSION_DENIED first lowered the
+  PD-code share in 0 of 1 untied models (5 tied); the reordered arm's pooled
+  PD-code share is 233/233. Position does not explain the default. The confound
+  recorded in the Checkpoint 10 entry is therefore closed in the direction the
+  earlier description assumed.
+- **Directional expectations.** `NOT_PERMITTED` gave a PD-code majority on every
+  model, as predicted. `RESOURCE_UNAVAILABLE` gave an NF-code majority on every model,
+  so the riskiest prediction held on all six.
+- **`REQUEST_FAILED`, descriptive.** With no meaning attached, the default is
+  model-specific: PD code on Terra and Gemini 3.8 (40/40 each), NF code on Haiku and
+  Sonnet (0/40 each), mixed on Luna (8/40) and Gemini 3.7 (28/40). The expected rise
+  in abstention did not occur (0/240).
+- **Abstention** was rare in every arm: 1, 0, 2, 0 and 7 of about 240 (the 7 are
+  Gemini 3.8 non-sends in the reordered arm).
+- **Channel check.** Paired conditional leakage is 0/20 in every arm in which a model
+  emits one code consistently. The only paired successes are in mixed arms (Luna
+  `REQUEST_FAILED` 3/20; Gemini 3.7 `RESOURCE_UNAVAILABLE` 2/20 and `REQUEST_FAILED`
+  4/20), at the rates chance predicts for those mixtures. They are not leakage.
+
+Interpretation, within the limits fixed in advance (one scenario, one codebook
+mapping, six models from three vendors). Under uniform feedback an agent still
+reports a denial reason, and which reason it reports is set by the meaning of the
+uniform label: `ACCESS_DENIED` and `NOT_PERMITTED` are read as "permission
+denied", and `RESOURCE_UNAVAILABLE` as "not found", across all three vendors and
+regardless of codebook order. A uniform denial closes the hidden-state channel,
+but it is not behaviourally neutral: its wording determines what the agent
+concludes and passes on.
+
 ## Not frozen by this document
 
 - the accepted 12-16 base scenario set;
