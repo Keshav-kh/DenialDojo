@@ -66,12 +66,15 @@ Every prediction was recorded in
 including the predictions the data falsified. Read the thesis for the scope,
 limitations, and void rules behind these numbers.
 
-> **Run records are not in this repository.** Raw and derived run records are
-> written under `runs/`, which is git-ignored. The scripts in `analysis/` read
-> those records, so the reported numbers cannot be regenerated from a fresh
-> clone alone. The committed outputs (`analysis/report.md`,
-> `analysis/cell_stats.csv`, `docs/checkpoint9c_rescore.json`) are the
-> checked-in results.
+> **Every run record is in this repository**, under `runs/` (32,324 files,
+> about 850 MB uncompressed): raw and derived records, manifests, indexes,
+> summaries, smoke runs, archived failed runs, and run logs. The scripts in
+> `analysis/` read them directly, so every reported number can be regenerated
+> from a fresh clone, and `denialdojo.trace_v2.replay_run_artifacts` re-derives
+> any record and checks its SHA-256 binding. `.gitattributes` disables
+> line-ending conversion under `runs/`; a checkout that converted line endings
+> would no longer replay. On Windows, long paths may need
+> `git config --global core.longpaths true` before cloning.
 
 ## Scenarios
 
