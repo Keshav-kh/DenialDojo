@@ -8,7 +8,9 @@ was run.
 
 | File | Contents |
 | --- | --- |
-| [`thesis/thesis.pdf`](thesis/thesis.pdf) ([source](thesis/thesis.tex)) | The thesis (revised draft): design, results, limitations, scenario specifications |
+| [`thesis/draft2/thesis.pdf`](thesis/draft2/thesis.pdf) ([source](thesis/draft2/thesis.tex)) | The thesis, second draft (Schreyer format), through Checkpoint 10 |
+| [`thesis/thesis.pdf`](thesis/thesis.pdf) ([source](thesis/thesis.tex)) | The thesis, first draft, kept for reference |
+| [`paper/`](paper/README.md) | Paper materials: frozen version, reproduction commands, inclusion manifest, and what each dataset count means |
 | [`preregistration.md`](preregistration.md) | Dated, append-only preregistration: every frozen rule, prediction, defect, and outcome by checkpoint |
 | [`thesis/eligibility_summary.pdf`](thesis/eligibility_summary.pdf) ([source](thesis/eligibility_summary.tex)) | Which AgentDojo user tasks can host a scenario |
 | [`task_eligibility.json`](task_eligibility.json) | Per-task eligibility survey output (`analysis/task_eligibility.py`) |
