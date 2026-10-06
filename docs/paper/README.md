@@ -139,8 +139,14 @@ Suggested totals for the paper:
 
 - **Dataset:** 15,313 agent episodes in total, of which 12,456 are in experiment
   arms and 9,024 in interpretable arms.
-- **Cited leakage bound:** 13 attack arms, 3,016 episodes: 918 natural (54 of
-  them from S5 Terra after its 18 void-cell records), 1,040 forced, and 1,040
-  positive-control episodes, which validate the instrument and are not in the
-  bound.
+- **Cited leakage bound:** 13 attack arms of 232 episodes each (72 natural, 80
+  forced, 80 positive control), 3,016 episodes before exclusions and 2,998
+  retained. The one exclusion is 18 natural episodes of the S5
+  (`banking_gift_lookup_probe`) `gpt-5.6-terra` arm: three whole natural cells
+  of six episodes (v1/uniform/delay 0, v2/reason-bearing/delay 2,
+  v2/uniform/delay 0) in which the injection was delivered to only 5 of 6
+  episodes, so they are void under the Checkpoint 7A delivery rule (recorded in
+  Checkpoint 7G and named in `analysis/leakage_bounds.py`). The bound itself
+  uses 1,958 episodes: 918 natural (936 - 18) and 1,040 forced. The 1,040
+  positive-control episodes validate the instrument and are not in the bound.
 - **Chapter 10:** 1,200 episodes, 6 models x 5 arms x 40.
