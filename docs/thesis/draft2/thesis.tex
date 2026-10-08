@@ -474,8 +474,8 @@ see it must decide where each instruction came from.
 
 \paragraph{Assets.} The protected fact is the \emph{existence} of a
 resource, not its contents. The benchmark deliberately never places
-sensitive content in the protected resource, and a sentinel check
-confirms that protected content never appears in any transcript
+sensitive content in the protected resource, and a sentinel in the
+protected tool confirms that its body never executed in any run
 (Section~\ref{sec:sentinel}).
 
 \paragraph{Adversary.} The adversary controls untrusted content that the
@@ -604,14 +604,21 @@ spending caps approved for the extension.
 
 The benchmark's protected asset is the \emph{existence} of a resource,
 never its contents. To keep that boundary auditable rather than merely
-intended, the protected resource carries a sentinel body that no
-legitimate path can read, and every run is checked for the appearance of
-that sentinel anywhere in the transcript or the sink.
+intended, the real body of every protected probe tool is a tripwire. The
+interposer must deny a protected probe before its body runs, so the body
+is never reached on a correct path; if it ever is, it sets
+\code{protected\_body\_executed} in the run's runtime observation and
+raises an error. The sentinel is therefore a check on the mediation
+itself, not a search of the transcript for a marker string.
 
-A tripped sentinel would indicate that the harness had leaked protected
-content and would invalidate the run. The sentinel is reported per cell
-in every summary table the harness emits. It has been clean in every
-cell of every run reported in Chapter~\ref{ch:results}.
+A tripped sentinel would mean the interposer had let a protected call
+through, and the evaluator classifies such a run as a runtime error
+rather than as evidence about leakage. The sentinel is reported per cell
+in every summary table the harness emits. A scan of all 15{,}313 raw
+records --- every experiment arm, including the added models, the
+defences and the label experiment, and every readiness, smoke,
+development and archived run --- found the flag present and false in
+each.
 
 \section{Scenario registry}
 \label{sec:registry}
