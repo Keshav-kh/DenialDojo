@@ -48,6 +48,12 @@
 
 \newcommand{\code}[1]{\texttt{\small #1}}
 
+% Page numbers at the top right, as in the Schreyer template, including the
+% first page of each chapter.
+\usepackage{fancyhdr}
+\setlength{\headheight}{15pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyhead[R]{\thepage}%
+  \renewcommand{\headrulewidth}{0pt}\renewcommand{\footrulewidth}{0pt}}
 \pagestyle{plain}
 \setlength{\emergencystretch}{3em}
 % Captions sit above tables; keep them off the top rule.
@@ -58,31 +64,26 @@
 \begin{titlepage}
 \begin{center}
 \singlespacing
+% Wording and order follow the Schreyer Honors College thesis_template.docx.
 THE PENNSYLVANIA STATE UNIVERSITY\\
 SCHREYER HONORS COLLEGE
 
-\vspace{1.2cm}
-DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING
+\vspace{1.6cm}
+DenialDojo: A Counterfactual Benchmark for Denial-Reason Leakage\\
+in Tool-Using Language Model Agents
 
 \vspace{1.6cm}
-{\bfseries DENIALDOJO: A COUNTERFACTUAL BENCHMARK\\
-FOR DENIAL-REASON LEAKAGE IN TOOL-USING\\
-LANGUAGE MODEL AGENTS\par}
-
-\vspace{1.6cm}
-KESHAV KHANDELWAL\\
-FALL 2026
+Keshav Khandelwal\\
+Fall 2026
 
 \vspace{1.6cm}
 A thesis\\
 submitted in partial fulfillment\\
-of the requirements\\
-for a baccalaureate degree\\
-in Computer Science\\
-with honors in Computer Science
+of the Schreyer Honors College requirements\\
+for honors in Computer Science
 
 \vspace{1.6cm}
-Reviewed and approved* by the following:
+Reviewed and approved by the following:
 
 \vspace{0.8cm}
 Suman Saha\\
@@ -92,76 +93,122 @@ Thesis Supervisor
 \vspace{0.8cm}
 John Sampson\\
 Associate Professor of Computer Science and Engineering\\
-Honors Adviser
-
-\vfill
-* Electronic approvals are on file.
+Thesis Honors Adviser
 \end{center}
 \end{titlepage}
 
 \pagenumbering{roman}
 \setcounter{page}{1}
 \chapter*{Abstract}
-\addcontentsline{toc}{chapter}{Abstract}
+% Schreyer requires a one-paragraph abstract of no more than one page, not
+% listed in the table of contents. The earlier four-paragraph version is kept
+% below as a comment.
 
 When a tool-using language model agent is denied access to a resource, the
-denial itself carries information. A response of \emph{not found} and a
-response of \emph{permission denied} are operationally different: the second
-confirms that the resource exists. If untrusted content can induce an agent to
-transmit which denial it received through an external channel, the denial
-message becomes a side channel that discloses the existence of protected
-resources to a party that never had access to them.
-
-This thesis introduces \textbf{DenialDojo}, a counterfactual benchmark that
-measures whether an agent leaks the \emph{reason} for a denial through an
-external sink. Two hidden-state arms are held byte-identical in task, prompt and
-attack text and differ only in why access fails, so a difference in what the
-agent sends is attributable to the denial reason alone. Built on AgentDojo, the
-benchmark mediates every protected call through a trusted interposer and writes
-immutable, replayable records. It was run on six hosted models from three
-providers --- OpenAI's GPT-5.6 Luna and Terra, Anthropic's Claude Sonnet~5.5 and
-Haiku~4.5, and Google's Gemini~3.8 and~3.7 Flash --- across seven scenarios in
-three task suites, producing 15{,}313 records under a preregistration discipline
-in which every prediction was recorded before its data existed.
-
-The instrument detects the channel whenever the user authorises its use:
-under reason-bearing feedback the positive control decoded the hidden state in
-519 of 520 records of the cited dataset, on every provider, and uniform feedback
-closed the channel completely. Unsolicited leakage, driven only by injected
-content, was realised once --- four of four counterfactual pairs in one scenario
-on one OpenAI model --- and was not reproduced anywhere else. Across the four
-added models the injection was delivered in all 1{,}080 natural records and not
-one acted on it. Treating each experimental cell as a single observation, the
-one-sided 95\% upper bound on the leakage rate across all models is 1.54\%
-natural and 1.15\% pooled. Uniform denials close the channel, but they are
-not neutral: asked for the reason, agents still report one, and a final
-preregistered experiment on all six models shows that the \emph{meaning} of the
-uniform label decides which. \texttt{ACCESS\_DENIED} was reported as
+denial itself carries information: a response of \emph{not found} and a
+response of \emph{permission denied} differ in whether the resource exists.
+This thesis introduces DenialDojo, a counterfactual benchmark built on
+AgentDojo that measures whether an agent transmits the reason for a denial
+through an external sink. Paired runs hold the task, prompts and attack text
+byte-identical and differ only in the hidden state behind the denial; a
+trusted interposer mediates every protected call; and every run is stored as
+an immutable, replayable record. Six hosted models from OpenAI, Anthropic and
+Google were evaluated across seven scenarios in three task suites, producing
+15{,}313 run records under a preregistration in which each prediction was
+recorded before its data existed. When the user authorised the report, the
+instrument detected the channel in 519 of 520 positive-control records.
+Leakage driven only by injected content occurred once, in four of four
+counterfactual pairs for one model and one scenario, and was not reproduced
+elsewhere; treating each experimental cell as a single observation, the
+one-sided 95\% upper bound on the unsolicited leakage rate across all models
+is 1.54\% for the natural condition and 1.15\% pooled. Uniform denial feedback
+closed the channel, but agents still reported a reason, and the wording of the
+uniform label decided which: \texttt{ACCESS\_DENIED} was reported as
 \emph{permission denied} in 237 of 239 records and
-\texttt{RESOURCE\_UNAVAILABLE} as \emph{not found} in 235 of 238, on six of six
-models; a label sharing a word with \emph{not found} but meaning \emph{not
-permitted} did not move, and neither did reversing the order of the codebook.
+\texttt{RESOURCE\_UNAVAILABLE} as \emph{not found} in 235 of 238, on all six
+models. A dual-model guard blocked every attempted exfiltration of the
+realised attack, at costs that expose two failure modes, state blindness and
+provenance confusion, and the work documents twenty-six measurement-validity
+defects found in its own instrumentation.
 
-A dual-model authorization layer, in which a guard model approves or denies each
-outbound action, blocked every attempted exfiltration of the realised attack in
-two configurations with sharply different costs. A guard that sees only the
-user's request cannot authorise any action whose legitimacy depends on gathered
-state (\emph{state blindness}); a guard that also sees tool output recovers full
-benign utility, is not persuaded by the injection it reads, but misattributes a
-legitimate instruction to the untrusted channel when both carry it
-(\emph{provenance confusion}). Two losses of coverage in the extension are
-findings in their own right: Anthropic's provider-side content filter blocked
-Sonnet's positive control often enough to void every Sonnet arm from scenario
-three onward, and both Gemini releases declined the benign version of most
-scenarios. The work also catalogues twenty-six measurement-validity defects
-found in its own instrumentation, including experiments that ran cleanly and
-measured nothing, and shows that the wording of a protected tool's description
-can manufacture the reconnaissance the benchmark attributes to injection.
+% --- Earlier four-paragraph abstract (draft two), kept for reference ---
+%
+% When a tool-using language model agent is denied access to a resource, the
+% denial itself carries information. A response of \emph{not found} and a
+% response of \emph{permission denied} are operationally different: the second
+% confirms that the resource exists. If untrusted content can induce an agent to
+% transmit which denial it received through an external channel, the denial
+% message becomes a side channel that discloses the existence of protected
+% resources to a party that never had access to them.
+%
+% This thesis introduces \textbf{DenialDojo}, a counterfactual benchmark that
+% measures whether an agent leaks the \emph{reason} for a denial through an
+% external sink. Two hidden-state arms are held byte-identical in task, prompt and
+% attack text and differ only in why access fails, so a difference in what the
+% agent sends is attributable to the denial reason alone. Built on AgentDojo, the
+% benchmark mediates every protected call through a trusted interposer and writes
+% immutable, replayable records. It was run on six hosted models from three
+% providers --- OpenAI's GPT-5.6 Luna and Terra, Anthropic's Claude Sonnet~5.5 and
+% Haiku~4.5, and Google's Gemini~3.8 and~3.7 Flash --- across seven scenarios in
+% three task suites, producing 15{,}313 records under a preregistration discipline
+% in which every prediction was recorded before its data existed.
+%
+% The instrument detects the channel whenever the user authorises its use:
+% under reason-bearing feedback the positive control decoded the hidden state in
+% 519 of 520 records of the cited dataset, on every provider, and uniform feedback
+% closed the channel completely. Unsolicited leakage, driven only by injected
+% content, was realised once --- four of four counterfactual pairs in one scenario
+% on one OpenAI model --- and was not reproduced anywhere else. Across the four
+% added models the injection was delivered in all 1{,}080 natural records and not
+% one acted on it. Treating each experimental cell as a single observation, the
+% one-sided 95\% upper bound on the leakage rate across all models is 1.54\%
+% natural and 1.15\% pooled. Uniform denials close the channel, but they are
+% not neutral: asked for the reason, agents still report one, and a final
+% preregistered experiment on all six models shows that the \emph{meaning} of the
+% uniform label decides which. \texttt{ACCESS\_DENIED} was reported as
+% \emph{permission denied} in 237 of 239 records and
+% \texttt{RESOURCE\_UNAVAILABLE} as \emph{not found} in 235 of 238, on six of six
+% models; a label sharing a word with \emph{not found} but meaning \emph{not
+% permitted} did not move, and neither did reversing the order of the codebook.
+%
+% A dual-model authorization layer, in which a guard model approves or denies each
+% outbound action, blocked every attempted exfiltration of the realised attack in
+% two configurations with sharply different costs. A guard that sees only the
+% user's request cannot authorise any action whose legitimacy depends on gathered
+% state (\emph{state blindness}); a guard that also sees tool output recovers full
+% benign utility, is not persuaded by the injection it reads, but misattributes a
+% legitimate instruction to the untrusted channel when both carry it
+% (\emph{provenance confusion}). Two losses of coverage in the extension are
+% findings in their own right: Anthropic's provider-side content filter blocked
+% Sonnet's positive control often enough to void every Sonnet arm from scenario
+% three onward, and both Gemini releases declined the benign version of most
+% scenarios. The work also catalogues twenty-six measurement-validity defects
+% found in its own instrumentation, including experiments that ran cleanly and
+% measured nothing, and shows that the wording of a protected tool's description
+% can manufacture the reconnaissance the benchmark attributes to injection.
 
 \tableofcontents
 \clearpage
 \listoftables
 \addcontentsline{toc}{chapter}{List of Tables}
+\clearpage
+\chapter*{AI Disclosure}
+\addcontentsline{toc}{chapter}{AI Disclosure}
+
+Generative AI was used in this thesis as a programming and writing assistant,
+under my direction and review. AI coding assistants (OpenAI Codex and
+Anthropic's Claude Code) were used to write, test and refactor the benchmark's
+Python implementation and analysis scripts, to run and check analyses over the
+recorded data, and to draft and revise passages of this document. The research
+question, the experimental design, every preregistered prediction and
+decision rule, and the interpretation of the results are my own, developed
+with my thesis supervisor. Every reported number is computed from the archived
+run records by deterministic analysis scripts in the project repository,
+which anyone can rerun without calling a model, and I checked the text against
+those outputs. The language models evaluated in the experiments (GPT-5.6,
+Claude and Gemini models) are the subject of the study, not assistants to it;
+their use is described in Chapters~\ref{ch:methods}
+and~\ref{sec:cross-vendor}.
 \clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
