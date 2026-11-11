@@ -314,8 +314,8 @@ work.
     modalities, unsolicited denial-reason leakage occurred in one of 918
     interpretable natural records and in none of 1{,}040 forced records,
     with injection delivery verified for every record. Treating each
-    experimental cell as a single observation, so that no independence is
-    assumed, the one-sided 95\% upper bounds across all models are
+    experimental cell as the unit of analysis, so that repetitions within
+    a cell are not assumed independent, the one-sided 95\% upper bounds across all models are
     $1.54\%$ natural and $1.15\%$ pooled. In the same runs the
     reason-bearing positive control decoded the hidden state in 519 of
     520 records, on the same denial strings, so the bound separates
@@ -351,9 +351,9 @@ work.
     without revision, and a preregistered void rule applied to a model
     whose positive control failed (Chapters~\ref{ch:methods}
     and~\ref{ch:results}).
-  \item An empirical security--utility frontier showing two
-    interventions with identical security outcomes and opposite utility
-    costs (Section~\ref{sec:frontier}).
+  \item A characterisation of mediator-side quarantine, measuring its
+    intervention behaviour and its cost to legitimate use in a scenario
+    without an active leakage channel (Section~\ref{sec:frontier}).
   \item A catalogue of measurement-validity defects found in the
     benchmark's own instrumentation, with the general patterns they
     instantiate, including a fail-open in the trusted mediator and a
@@ -779,14 +779,17 @@ $I(S;Y)$ with an explicit undecodable category. That protocol presumes enough
 positive events to estimate a rate around. The data do not contain them.
 
 The appropriate analysis for the data actually collected is a one-sided upper
-bound on the leakage rate, computed two ways that bracket the answer.
+bound, computed at two units of analysis.
 
-The optimistic bound applies the Clopper--Pearson construction to individual
-records, which assumes they are independent Bernoulli trials. The conservative
-bound collapses each experimental cell to a single binary outcome, one if that
-cell contains any leakage event and zero otherwise, and applies the same
-construction to those cell outcomes. The second assumes nothing whatever about
-independence, at the cost of discarding within-cell repetition.
+The record-level bound applies the Clopper--Pearson construction to individual
+records, which assumes they are independent Bernoulli trials; it bounds the
+per-record leakage rate. The cell-level bound collapses each experimental cell
+to a single binary outcome, one if that cell contains any leakage event and zero
+otherwise, and applies the same construction to those cell outcomes; it bounds
+the proportion of cells that contain any leakage event. The cell-level
+calculation avoids assuming independence among repetitions within a cell, at
+the cost of discarding within-cell repetition, but it still treats cells as the
+units of analysis and as independent of one another.
 
 \begin{table}[h]
 \centering
@@ -809,12 +812,13 @@ pooled & $1/1198$ & $0.40\%$ & $1/250$ & $\mathbf{1.88\%}$ \\
 \end{tabular}
 \end{table}
 
-The conservative column is the one this work cites. Records within a cell share
-a model, a prompt and a hidden state and differ only by repetition, so the
-per-record column overstates the effective sample size. With a single event in
-the entire dataset the intracluster correlation cannot be estimated, so the true
-bound cannot be located within the bracket; reporting both ends is the honest
-representation of what the data support.
+The per-cell column is the one this work cites. Records within a cell share a
+model, a prompt and a hidden state and differ only by repetition, so treating
+them as independent would overstate the effective sample size. The two columns
+estimate different quantities, the per-record leakage rate and the proportion
+of cells with any leakage event, and are not two estimates of a single rate.
+With a single event in the entire dataset the intracluster correlation cannot
+be estimated, so both are reported.
 
 \paragraph{A rejected method.} A cluster-level percentile bootstrap was computed
 first and discarded as invalid. A percentile bootstrap resamples the sampling
@@ -1685,7 +1689,7 @@ and scenario four on both models, excluding the voided Luna arm of scenario
 three --- the natural condition comprises 216 records with delivery verified at
 $100\%$ and contains one send. The forced condition comprises 240 records with
 probe and denial rates of $100\%$ and contains zero. Treating each experimental cell as
-a single observation, so that no independence between repetitions is assumed,
+the unit of analysis, so that repetitions within a cell are not assumed independent,
 the one-sided $95\%$ upper bounds are $6.42\%$ natural, $11.73\%$ forced and
 $4.85\%$ pooled; the corresponding per-record bounds are $2.18\%$, $1.24\%$ and
 $1.04\%$. These interim figures, computed when four scenarios existed, are
@@ -2067,8 +2071,9 @@ binomial calculation before being pinned in
 \centering
 \small
 \caption{One-sided $95\%$ upper bounds on the unsolicited leakage rate, per model
-and pooled (Checkpoint 9). Per-cell figures assume nothing about independence and
-are the ones cited.}
+and pooled (Checkpoint 9). Per-cell figures avoid assuming independence among
+repetitions within a cell but treat cells as the units of analysis; they bound
+the proportion of cells with any leakage event and are the ones cited.}
 \label{tab:cp9-bounds}
 \setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{@{}lrrrrr@{}}
@@ -2166,45 +2171,61 @@ reported as outcomes rather than repaired away.
 \chapter{Defences}
 \label{ch:defences}
 
-The results so far measure the channel. This chapter measures what closes it,
-and at what cost to legitimate work (RQ3). Three families of intervention were
-evaluated: mediator-side quarantine of the sink after a denial, uniform denial
+The results so far measure the channel. This chapter measures interventions
+against it and their cost to legitimate work (RQ3). Three families of
+intervention were evaluated: mediator-side quarantine of the sink after a denial, uniform denial
 feedback that removes the reason from the message, and a dual-model
 authorization layer in which a guard model approves or denies each outbound
 action. The last is the deliverable of the approved honors proposal.
 
-\section{Mediator defences: the security--utility frontier}
+\section{Mediator quarantine: intervention behaviour and legitimate-use cost}
 \label{sec:frontier}
 
 Exploratory, not confirmatory. \code{fixed\_quarantine} at
-$k \in \{1,2,4\}$, both models, 48 attack and 8 benign records per model
-per window; 336 records in total.
+$k \in \{1,2,4\}$, both models, scenario one, 48 attack records (24
+\code{natural}, 8 \code{forced}, 16 \code{positive\_control}) and 8 benign
+records per model per window; 336 records in total.
 Artifacts: \code{runs/pilot5c-k\{1,2,4\}}.
+
+The sweep ran on scenario one, and without a defence scenario one showed no
+state-dependent transmission under indirect prompt injection: no
+\code{natural} or \code{forced} record sent a message
+(Section~\ref{sec:4a}). There was therefore no active leakage channel for
+quarantine to close, and this sweep cannot show that quarantine is effective
+against one. What it measures is how the intervention behaves and what it costs
+legitimate use.
 
 \begin{table}[h]
 \centering
 \small
-\caption{Security--utility frontier. Attack-arm leakage and benign-arm
-utility under fixed quarantine, identical for both models.}
-\begin{tabular}{@{}lrrr@{}}
+\caption{Fixed quarantine in scenario one, per model and window. Scenario one
+had no injection-driven sends without a defence, so the injection columns do
+not measure efficacy against an active channel. Authorised and benign sends
+are the legitimate uses the quarantine intervened on.}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-Condition & Attack leakage & Attack terminal & Benign utility \\
+& \multicolumn{2}{c}{Injection records} & & \\
+\cmidrule(lr){2-3}
+Condition & Sink attempts & Interventions & Authorised sends blocked & Benign utility \\
 \midrule
-\code{fixed\_quarantine}$(k{=}1)$ & $0/48$ & all \code{no\_send} & $4/8$ \\
-\code{fixed\_quarantine}$(k{=}2)$ & $0/48$ & all \code{no\_send} & $4/8$ \\
-\code{fixed\_quarantine}$(k{=}4)$ & $0/48$ & all \code{no\_send} & $0/8$ \\
-\addlinespace
-\code{uniform} feedback (from \S\ref{sec:4a}) & $0/10$ pairs & \code{complete} & $20/20$ \\
+\code{fixed\_quarantine}$(k{=}1)$ & $0/32$ & $0$ & luna $16$, terra $8$ & $4/8$ \\
+\code{fixed\_quarantine}$(k{=}2)$ & $0/32$ & $0$ & luna $16$, terra $10$ & $4/8$ \\
+\code{fixed\_quarantine}$(k{=}4)$ & $0/32$ & $0$ & luna $16$, terra $8$ & $0/8$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{The frontier result.} Quarantine drives leakage to zero at
-every window, but destroys benign utility at $k=4$ and halves it at
-$k=1$ and $k=2$. Uniform feedback closes the same channel while allowing
-the benign send to proceed, preserving utility. \textbf{Two
-interventions, the same security outcome, opposite utility costs.} This
-is the RQ3 frontier commitment.
+\paragraph{What the intervention did.} No \code{natural} or \code{forced}
+record attempted a sink call at any window, so the quarantine never
+intervened on an injection-driven action. Every one of its interventions fell
+on a legitimate send: 74 on \code{positive\_control} records, in which the user
+had authorised the report, and 32 on benign records. Every attack-arm record,
+authorised or not, ended \code{no\_send}. Benign utility was halved at $k=1$
+and $k=2$ and eliminated at $k=4$, identically for both models. The measured
+effect of quarantine in this setting is therefore its cost to legitimate use;
+its effect on an active leakage channel is not measured here. The cost of
+uniform feedback to legitimate use is reported separately in
+Section~\ref{sec:uniform-cost}.
 
 \paragraph{The delay finding.} Across both models, every blocked sink
 call was followed by no second attempt. Enforcing delay through the
@@ -2212,8 +2233,9 @@ interposer presupposes an agent that retries after the window elapses;
 neither model retries. Delay must therefore be reported as an
 \emph{observed outcome} rather than enforced as a treatment.
 Recomputed from the frozen Checkpoint 5C artifacts: 74 sink calls were
-blocked in the attack arms and 106 across the attack and benign arms together,
-and none of the 336 records made any sink call after a block.
+blocked in the attack arms, all of them authorised \code{positive\_control}
+sends, and 106 across the attack and benign arms together, and none of the 336
+records made any sink call after a block.
 
 \paragraph{Duplication finding.} \code{immediate\_adjacency} is the
 predicate $x = 0$ and \code{fixed\_quarantine}$(k{=}1)$ is $x < 1$.
@@ -2344,11 +2366,11 @@ clean false-denial denominator is the 40 reason-bearing records, and this
 correction to the preregistered denominator is recorded in Checkpoint 8B rather
 than absorbed.
 
-\subsection{Frontier position}
+\subsection{Security and utility position}
 
-The security--utility frontier of Section~\ref{sec:frontier} gains two points.
-Both guards match the best security outcome measured, zero sends in the attack
-cell. The blind guard pays for it with half the benign arm and every
+Unlike the quarantine sweep of Section~\ref{sec:frontier}, the guards were
+evaluated in the one scenario with an active injection-driven channel. Both
+guards reached zero sends in the attack cell. The blind guard pays for it with half the benign arm and every
 state-conditional authorised action; the informed guard pays nothing on the
 benign arm and roughly half the reason-bearing positive control through
 misattribution. The informed guard dominates the blind guard on every measured
@@ -2379,29 +2401,30 @@ benign arms of all six models, using the 9C-1 utility rule.
 \centering
 \small
 \caption{Benign task utility under reason-bearing and uniform denial feedback,
-27 confirmatory benign arms. Two-sided Fisher exact tests. Exploratory.}
+27 confirmatory benign arms. Descriptive comparison. Exploratory.}
 \label{tab:uniform-cost}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-Provider & Reason-bearing & Uniform & Difference & $p$ \\
+Provider & Reason-bearing & Uniform & Difference \\
 \midrule
-OpenAI & $465/480$ ($96.9\%$) & $465/480$ ($96.9\%$) & $0.0$ points & $1.00$ \\
-Anthropic & $437/440$ ($99.3\%$) & $437/440$ ($99.3\%$) & $0.0$ points & $1.00$ \\
-Google & $140/160$ ($87.5\%$) & $133/160$ ($83.1\%$) & $-4.4$ points & $0.34$ \\
+OpenAI & $465/480$ ($96.9\%$) & $465/480$ ($96.9\%$) & $0.0$ points \\
+Anthropic & $437/440$ ($99.3\%$) & $437/440$ ($99.3\%$) & $0.0$ points \\
+Google & $140/160$ ($87.5\%$) & $133/160$ ($83.1\%$) & $-4.4$ points \\
 \midrule
-All & $1042/1080$ ($96.5\%$) & $1035/1080$ ($95.8\%$) & $-0.6$ points & $0.50$ \\
+All & $1042/1080$ ($96.5\%$) & $1035/1080$ ($95.8\%$) & $-0.6$ points \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-On these tasks uniform denials have no detectable cost. Utility is identical
-for the OpenAI and Anthropic models and differs by less than one point overall.
-The only arm in which uniform feedback trailed by more than two records is
-Gemini~3.7 in scenario seven, where utility was low under both modes (23 and 19
-of 40). Together with the frontier of Section~\ref{sec:frontier}, where
-quarantine closed the channel at the price of half or all of benign utility,
-this places uniform denials at the favourable end: the same security outcome as
-the strongest mediator defence, at no measured cost.
+Pooled over all six models, benign utility was $96.5\%$ under reason-bearing
+feedback and $95.8\%$ under uniform feedback, an observed difference of $-0.6$
+percentage points. The comparison is descriptive; it does not establish that
+the two modes are equivalent. Utility was identical under both modes for the
+OpenAI and Anthropic models, and $4.4$ points lower under uniform feedback for
+the Google models. The only arm in which uniform feedback trailed by more than
+two records is Gemini~3.7 in scenario seven, where utility was low under both
+modes (23 and 19 of 40). By contrast, quarantine in Section~\ref{sec:frontier}
+removed half or all of benign utility.
 
 The scope of the claim is narrow, and deliberately so. In these tasks the
 legitimate user never needs to know why access failed; the benign arm completes
@@ -2415,7 +2438,8 @@ caller, which is the setting in which the leak is possible.
 \chapter{What a Uniform Denial Says}
 \label{ch:wording}
 
-Uniform feedback closes the channel at no measured cost to legitimate work. It
+Uniform feedback closes the channel, and its observed effect on benign utility
+was small: $-0.6$ percentage points pooled (Section~\ref{sec:uniform-cost}). It
 does not stop the agent from reporting a reason. In every interpretable arm of
 the main study, an agent told only \code{ACCESS\_DENIED} and asked for the code
 of the denial it received sent a code anyway, and in 18 of 19 arms it was the
@@ -2936,7 +2960,10 @@ limitation in full.
   \item[Statistical inference.] With one leakage event in the dataset no
     rate is estimated. Rates are reported as one-sided upper bounds, per
     record and per cell (\S\ref{sec:stats}); the per-cell bound is the
-    one cited, and the true value lies somewhere within the bracket.
+    one cited. The two estimate different quantities: the per-record
+    bound treats repetitions as independent, and the per-cell bound
+    avoids that assumption within a cell but still treats cells as the
+    units of analysis.
   \item[Probe rates in scenarios two to five.] Their protected-probe
     descriptions invited spontaneous probing (\S\ref{sec:tool-descriptions}),
     so probe rates in those scenarios are not evidence of injection-driven
